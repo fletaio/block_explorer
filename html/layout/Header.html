@@ -1,0 +1,35 @@
+<header id="header" class="header">
+    <div class="container">
+        <div class="stack">
+            <div class="brand">
+                <div class="floting">
+                    <a href="/" class="m-brand__logo-wrapper">
+                        <img alt="" src="/images/FLETA_LOGO.png" />
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="stack mobile-menu">
+            <a id="aside_header_list_mobile_toggle" class="brand_toggler" href="javascript:$('#left').addClass('list-on');">
+                <span></span>
+            </a>
+            <a id="aside_header_menu_mobile_toggle" class="brand_toggler" href="javascript:$('#header_nav').addClass('menu-on');" >
+                <span></span>
+            </a>
+        </div>
+        <div class="header-head" id="header_nav">
+            <button class="mobile-close" onclick="$('#header_nav').removeClass('menu-on')" id="mobile_close_btn"><i class="la la-close"></i></button>
+            <div id="header_menu" class="header-menu">
+                <ul class="menu_nav">
+                    <li class="menu_item {{pageTitle}} activeDashboard" ><a href="/" class="menu_link" title="Dashboard"><i class="dashboard"></i><span class="text">Dashboard</span></a>
+                    </li>
+                    <li class="menu_item {{pageTitle}} activeBlocks"><a href="/blocks" class="menu_link" title="Blocks"><i class="blocks"></i><span class="text">Blocks</span></i></a>
+                    </li>
+                    <li class="menu_item {{pageTitle}} activeTransactions"><a href="/transactions" class="menu_link" title="Transactions"><i class="transactions"></i><span class="text">Transactions</span></i></a>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</header>

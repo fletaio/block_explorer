@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8" />
+		<title>Fleta Block Explorer | {{pageTitle}}</title>
+		<meta name="description" content="Fleta Block Explorer">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no">
+
+		<script src="/js/jquery-2.2.0.min.js"></script>
+		<script src="/js/d3.v3.min.js"></script>
+
+		<script>
+            {{headScript}}
+		</script>
+
+		<script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.16/webfont.js"></script>
+		<script>
+			WebFont.load({
+				google: {"families":["Poppins:300,400,500,600,700","Roboto:300,400,500,600,700"]},
+				active: function() {
+					sessionStorage.fonts = true;
+				}
+			});
+		</script>
+
+		<link href="/css/preset.css" rel="stylesheet" type="text/css" />
+		<link href="/css/layout.css" rel="stylesheet" type="text/css" />
+		<link href="/css/custom.css" rel="stylesheet" type="text/css" />
+
+		<link rel="shortcut icon" href="/images/favicon.ico" />
+	</head>
+
+	<body class="">
+
+		<div class="root page">
+
+            {{Header}}
+
+			<div class="desktop body">
+
+                {{LeftAside}}
+				<div class="wrapper">
+
+					<div class="subheader ">
+						<div class="flex">
+							<h3 class="subheader_title ">{{pageTitle}}</h3>
+						</div>
+					</div>
+
+					<div class="content">
+                        {{fletaBody}}
+					</div>
+				</div>
+			</div>
+
+
+			{{Footer}}
+		</div>
+
+        {{FooterIncludeScript}}
+
+	</body>
+
+</html>
