@@ -1,27 +1,20 @@
 package blockexplorer
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
 	"git.fleta.io/fleta/block_explorer/template"
 	"git.fleta.io/fleta/common/util"
-	"git.fleta.io/fleta/core/data"
 	"git.fleta.io/fleta/core/kernel"
-	"git.fleta.io/fleta/core/transaction"
-	"git.fleta.io/fleta/extension/account_tx"
-	"git.fleta.io/fleta/framework/log"
 	"github.com/dgraph-io/badger"
 )
 
@@ -60,31 +53,9 @@ type BlockExplorer struct {
 	transactionCountList   []countInfo
 	CurrentChainInfo       currentChainInfo
 	lastestTransactionList []txInfos
-	db                     *badger.DB
 
+	db       *badger.DB
 	Template *template.Template
-
-	BlockInfo blockInfo
-}
-
-type blockInfo struct {
-	minSize  int
-	avgSize  float32
-	sizeAt95 int
-	sizeAt99 int
-	maxSize  int
-
-	minApply  int64
-	avgApply  float64
-	applyAt95 int64
-	applyAt99 int64
-	maxApply  int64
-
-	minSend  uint64
-	avgSend  float64
-	sendAt95 uint64
-	sendAt99 uint64
-	maxSend  uint64
 }
 
 type countInfo struct {
@@ -97,6 +68,7 @@ type currentChainInfo struct {
 	Blocks              uint32 `json:"blocks"`
 	Transactions        int    `json:"transactions"`
 	currentTransactions int
+	lastHeight          uint64
 }
 
 //NewBlockExplorer TODO
@@ -147,10 +119,6 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 		db: db,
 	}
 
-	e.BlockInfo.minApply = math.MaxInt64
-	e.BlockInfo.minSend = math.MaxUint64
-	e.BlockInfo.minSize = math.MaxInt32
-
 	go func(e *BlockExplorer) {
 		for {
 			time.Sleep(time.Second)
@@ -167,12 +135,14 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 
 var blockHeghtBytes = []byte("blockHeght")
 
+func (e *BlockExplorer) LastestTransactionLen() int {
+	return len(e.lastestTransactionList)
+}
 func (e *BlockExplorer) updateChainInfoCount() error {
-	// e.CurrentChainInfo.Foumulators = 10
-
 	currHeight := e.Kernel.Provider().Height()
 
 	e.CurrentChainInfo.currentTransactions = 0
+	e.CurrentChainInfo.Foumulators = e.Kernel.CandidateCount()
 
 	var height uint32
 	if err := e.db.View(func(txn *badger.Txn) error {
@@ -193,82 +163,60 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		return nil
 	}); err != nil {
 		return ErrDbNotClear
-		//TODO db error
 	}
 
 	if err := e.db.Update(func(txn *badger.Txn) error {
 		for e.CurrentChainInfo.Blocks > height {
 			height++
-			// b, err := e.Kernel.Block(height)
-			// if err != nil {
-			// 	if err == badger.ErrKeyNotFound {
-			// 		return ErrDbNotClear
-			// 	}
-			// 	return err
-			// }
 			err := e.updateHashs(txn, height)
 			if err != nil {
 				return err
 			}
-			txn.Set(blockHeghtBytes, util.Uint32ToBytes(height))
 		}
+		txn.Set(blockHeghtBytes, util.Uint32ToBytes(height))
 		return nil
-
 	}); err != nil {
 		return err
 	}
 
-	if err := e.db.Update(func(txn *badger.Txn) error {
-		newTxs := []txInfos{}
-		for i := int(currHeight); i > int(e.CurrentChainInfo.Blocks) && i >= 0; i-- {
-			height := uint32(i)
-			b, err := e.Kernel.Block(height)
-			if err != nil {
-				continue
-			}
-			e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
+	newTxs := []txInfos{}
+	for i := int(currHeight); i > int(e.CurrentChainInfo.Blocks) && i >= 0; i-- {
+		height := uint32(i)
+		b, err := e.Kernel.Block(height)
+		if err != nil {
+			continue
+		}
+		e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
 
-			//chain info start
-			d := Get(height)
-			if d != nil {
-				if d.SaveTime > 0 && e.BlockInfo.minApply > d.SaveTime {
-					e.BlockInfo.minApply = d.SaveTime
-				}
-				if e.BlockInfo.maxApply < d.SaveTime {
-					e.BlockInfo.maxApply = d.SaveTime
-				}
-				num := e.CurrentChainInfo.Blocks + (currHeight - height)
-				if num > 0 {
-					e.BlockInfo.avgApply = float64(((e.BlockInfo.avgApply * (float64(num) - float64(1))) + float64(d.SaveTime)) / float64(num))
-				}
-				e.BlockInfo.applyAt95 = GetSaveTime(95)
-				e.BlockInfo.applyAt99 = GetSaveTime(99)
+		txs := b.Body.Transactions
+		for _, tx := range txs {
+			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+			newTxs = append(newTxs, txInfos{
+				TxHash:    tx.Hash().String(),
+				BlockHash: b.Header.Hash().String(),
+				ChainID:   b.Header.ChainCoord.String(),
+				Time:      tx.Timestamp(),
+				TxType:    name,
+			})
+		}
 
-				if d.Spand > 0 && e.BlockInfo.minSend > d.Spand {
-					e.BlockInfo.minSend = d.Spand
-				}
-				if e.BlockInfo.maxSend < d.Spand {
-					e.BlockInfo.maxSend = d.Spand
-				}
-				if num > 0 {
-					e.BlockInfo.avgSend = float64(((e.BlockInfo.avgSend * (float64(num) - float64(1))) + float64(d.Spand)) / float64(num))
-				}
-				e.BlockInfo.sendAt95 = GetSpand(95)
-				e.BlockInfo.sendAt99 = GetSpand(99)
-			}
-
+		if err := e.db.Update(func(txn *badger.Txn) error {
 			//start block hash update
 			err = e.updateHashs(txn, height)
 			if err != nil {
 				return err
 			}
 			//end block hash update
-
+			return nil
+		}); err != nil {
+			return err
 		}
 
-		e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
-		txn.Set(blockHeghtBytes, util.Uint32ToBytes(currHeight))
+	}
 
+	e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
+	if err := e.db.Update(func(txn *badger.Txn) error {
+		txn.Set(blockHeghtBytes, util.Uint32ToBytes(currHeight))
 		return nil
 	}); err != nil {
 		return err
@@ -278,26 +226,8 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		e.lastestTransactionList = e.lastestTransactionList[len(e.lastestTransactionList)-500 : len(e.lastestTransactionList)]
 	}
 
-	//chain info start
-	c := e.CurrentChainInfo.currentTransactions / 2
-	if c > 0 && e.BlockInfo.minSize > c {
-		e.BlockInfo.minSize = c
-	}
-	if e.BlockInfo.maxSize < c {
-		e.BlockInfo.maxSize = c
-	}
-	if c > 0 {
-		e.BlockInfo.avgSize = float32(((e.BlockInfo.avgSize * (float32(currHeight) - float32(1))) + float32(c)) / float32(currHeight))
-		SaveSize(c)
-		e.BlockInfo.sizeAt95 = GetSize(95)
-		e.BlockInfo.sizeAt99 = GetSize(99)
-	}
-	//chain info end
-
 	e.CurrentChainInfo.Transactions += e.CurrentChainInfo.currentTransactions
 	e.CurrentChainInfo.Blocks = currHeight
-
-	log.Info("e.CurrentChainInfo.Blocks ", e.CurrentChainInfo.Blocks)
 
 	return nil
 }
@@ -307,13 +237,10 @@ func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
 	if err != nil {
 		return err
 	}
-	h, err := e.Kernel.Provider().Hash(height)
-	if err != nil {
-		return err
-	}
 	value := util.Uint32ToBytes(height)
 
-	if err := txn.Set(h[:], value); err != nil {
+	h := b.Header.Hash().String()
+	if err := txn.Set([]byte(h), value); err != nil {
 		return err
 	}
 
@@ -339,38 +266,8 @@ func appendListLimit(ci []countInfo, count int, limit int) []countInfo {
 	return ci
 }
 
-func typeToString(t transaction.Type) string {
-	switch t {
-	case transaction.Type(10):
-		return "Transfer"
-	case transaction.Type(18):
-		return "Withdraw"
-	case transaction.Type(19):
-		return "Burn"
-	case transaction.Type(20):
-		return "CreateAccount"
-	case transaction.Type(21):
-		return "CreateMultiSigAccount"
-	case transaction.Type(30):
-		return "Assign"
-	case transaction.Type(38):
-		return "Deposit"
-	case transaction.Type(41):
-		return "OpenAccount"
-	case transaction.Type(60):
-		return "CreateFormulation"
-	case transaction.Type(61):
-		return "RevokeFormulation"
-	case transaction.Type(70):
-		return "SolidityCreateContract"
-	case transaction.Type(71):
-		return "SolidityCallContract"
-	}
-
-	return ""
-}
-
-func (e *BlockExplorer) startExplorer() {
+// StartExplorer is start web server
+func (e *BlockExplorer) StartExplorer() {
 
 	e.Template.AddController("", NewExplorerController(e.db, e))
 
@@ -416,104 +313,6 @@ func (e *BlockExplorer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (e *BlockExplorer) TxDetailMap(tran *data.Transactor, height uint32, txIndex uint32) (map[string][]byte, error) {
-	// "fleta.CreateAccount":           &txFee{CreateAccountTransctionType, amount.COIN.MulC(10)},
-	// "fleta.Transfer":                &txFee{TransferTransctionType, amount.COIN.DivC(10)},
-	// "fleta.Withdraw":                &txFee{WithdrawTransctionType, amount.COIN.DivC(10)},
-	// "fleta.Burn":                    &txFee{BurnTransctionType, amount.COIN.DivC(10)},
-	m := map[string][]byte{}
-
-	b, err := e.Kernel.Block(height)
-	if err != nil {
-		return nil, err
-	}
-	t := b.Body.Transactions[int(txIndex)]
-
-	cd, err := e.Kernel.Provider().Data(height)
-	if err != nil {
-		return nil, err
-	}
-
-	name, err := tran.NameByType(t.Type())
-	if err != nil {
-		m["err"] = []byte("현재 지원하지 않는 transaction 입니다.")
-	}
-	m["Type"] = []byte(name)
-
-	h := cd.Header.Hash()
-	m["Block Hash"] = []byte(h.String())
-
-	tm := time.Unix(int64(cd.Header.Timestamp/uint64(time.Second)), 0)
-	m["Block Timestamp"] = []byte(tm.Format("2006-01-02 15:04:05"))
-	h = t.Hash()
-	m["Tx Hash"] = []byte(h.String())
-	tm = time.Unix(int64(t.Timestamp()/uint64(time.Second)), 0)
-	m["Tx TimeStamp"] = []byte(tm.Format("2006-01-02 15:04:05"))
-	m["Chain"] = []byte(t.ChainCoord().String())
-
-	switch name {
-	case "fleta.CreateAccount":
-		tx := t.(*account_tx.CreateAccount)
-		m["From"] = []byte(tx.From_.String())
-		m["KeyHash"] = []byte(tx.KeyHash.String())
-		m["Seq"] = []byte(fmt.Sprint(tx.Seq_))
-	case "fleta.Transfer":
-		tx := t.(*account_tx.Transfer)
-		m["From"] = []byte(tx.From_.String())
-		m["To"] = []byte(tx.To.String())
-		m["Seq"] = []byte(fmt.Sprint(tx.Seq_))
-		m["Amount"] = []byte(tx.Amount.String())
-
-		dst := make([]byte, hex.EncodedLen(len(tx.Tag)))
-		hex.Encode(dst, tx.Tag)
-		m["Tag"] = []byte(fmt.Sprintf("%s", dst))
-		m["TokenCoord"] = []byte(tx.TokenCoord.String())
-	case "fleta.Withdraw":
-		tx := t.(*account_tx.Withdraw)
-		m["From"] = []byte(tx.From_.String())
-		m["Seq"] = []byte(fmt.Sprint(tx.Seq_))
-		m["VoutCount"] = []byte(strconv.Itoa(len(tx.Vout)))
-
-		bs, err := json.Marshal(&tx.Vout)
-		if err == nil {
-			m["Vouts"] = bs
-		}
-	case "fleta.Burn":
-		tx := t.(*account_tx.Burn)
-		m["From"] = []byte(tx.From_.String())
-		m["Amount"] = []byte(tx.Amount.String())
-		m["Seq"] = []byte(fmt.Sprint(tx.Seq_))
-		m["TokenCoord"] = []byte(tx.TokenCoord.String())
-	}
-
-	return m, nil
-}
-
-func (e *BlockExplorer) BlockDetailMap(height uint32) (map[string][]byte, error) {
-	cd, err := e.Kernel.Provider().Data(height)
-	if err != nil {
-		return nil, err
-	}
-	b, err := e.Kernel.Block(height)
-	if err != nil {
-		return nil, err
-	}
-
-	tm := time.Unix(int64(cd.Header.Timestamp/uint64(time.Second)), 0)
-	m := map[string][]byte{}
-	m["Hash"] = []byte(cd.Header.Hash().String())
-	m["ChainCoord"] = []byte(b.Header.ChainCoord.String())
-	m["Height"] = []byte(strconv.Itoa(int(cd.Header.Height)))
-	m["Version"] = []byte(strconv.Itoa(int(cd.Header.Version)))
-	m["HashPrevBlock"] = []byte(cd.Header.PrevHash.String())
-	m["HashLevelRoot"] = []byte(b.Header.LevelRootHash.String())
-	m["Timestamp"] = []byte(tm.Format("2006-01-02 15:04:05"))
-	m["FormulationAddress"] = []byte(b.Header.FormulationAddress.String())
-	m["TimeoutCount"] = []byte(strconv.Itoa(int(b.Header.TimeoutCount)))
-	m["Transactions"] = []byte(strconv.Itoa(len(b.Body.Transactions)))
-	return m, nil
-}
-
 // Generate error page
 func handleErrorCode(errorCode int, description string, w http.ResponseWriter) {
 	w.WriteHeader(errorCode)                    // set HTTP status code (example 404, 500)
@@ -534,8 +333,6 @@ func (e *BlockExplorer) dataHandler(w http.ResponseWriter, r *http.Request) {
 		e.printJSON(e.transactions(), w)
 	case "currentChainInfo.data":
 		e.printJSON(e.CurrentChainInfo, w)
-	// case "typesPerBlock.data":
-	// 	e.printJSON(e.typePerBlock(), w)
 	case "lastestBlocks.data":
 		e.printJSON(e.lastestBlocks(), w)
 	case "lastestTransactions.data":
@@ -544,7 +341,5 @@ func (e *BlockExplorer) dataHandler(w http.ResponseWriter, r *http.Request) {
 		e.printJSON(e.paginationBlocks(r), w)
 	case "paginationTxs.data":
 		e.printJSON(e.paginationTxs(r), w)
-	case "chainInfoTable.data":
-		e.printJSON(e.chainInfoTable(), w)
 	}
 }

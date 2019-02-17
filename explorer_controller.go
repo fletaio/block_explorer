@@ -1,10 +1,18 @@
 package blockexplorer
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
+
+	"git.fleta.io/fleta/core/consensus"
+
+	citygame "git.fleta.io/fleta/city_game/city_game_context"
 
 	"git.fleta.io/fleta/common/util"
+	"git.fleta.io/fleta/core/data"
 	"github.com/dgraph-io/badger"
 )
 
@@ -21,11 +29,21 @@ func NewExplorerController(db *badger.DB, block *BlockExplorer) *ExplorerControl
 }
 
 func (e *ExplorerController) Blocks(r *http.Request) (map[string][]byte, error) {
+	data := e.block.blocks(0, e.block.Kernel.Provider().Height())
+	j, _ := json.Marshal(data)
 	return map[string][]byte{
-		"test": []byte("test byte"),
+		"blockData": j,
 	}, nil
 }
-func (e *ExplorerController) blockDetail(r *http.Request) (map[string][]byte, error) {
+func (e *ExplorerController) Transactions(r *http.Request) (map[string][]byte, error) {
+	data := e.block.txs(0, 10)
+	j, _ := json.Marshal(data)
+	return map[string][]byte{
+		"txsData":  j,
+		"txLength": []byte(strconv.Itoa(e.block.LastestTransactionLen())),
+	}, nil
+}
+func (e *ExplorerController) BlockDetail(r *http.Request) (map[string][]byte, error) {
 	param := r.URL.Query()
 	// hash := param.Get("hash")
 	heightStr := param.Get("height")
@@ -62,7 +80,7 @@ func (e *ExplorerController) blockDetail(r *http.Request) (map[string][]byte, er
 		height = uint32(heightInt)
 	}
 
-	m, err := e.block.BlockDetailMap(height)
+	m, err := e.block.blockDetailMap(height)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +88,7 @@ func (e *ExplorerController) blockDetail(r *http.Request) (map[string][]byte, er
 	return m, nil
 }
 
-func (e *ExplorerController) transactionDetail(r *http.Request) (map[string][]byte, error) {
+func (e *ExplorerController) TransactionDetail(r *http.Request) (map[string][]byte, error) {
 	param := r.URL.Query()
 	hash := param.Get("hash")
 	// heightStr := param.Get("height")
@@ -90,7 +108,7 @@ func (e *ExplorerController) transactionDetail(r *http.Request) (map[string][]by
 		blockHeight := util.BytesToUint32(v[0:4])
 		txIndex := util.BytesToUint32(v[4:8])
 
-		if m, err := e.block.TxDetailMap(e.block.Kernel.Transactor(), blockHeight, txIndex); err == nil {
+		if m, err := e.block.txDetailMap(e.block.Kernel.Transactor(), blockHeight, txIndex); err == nil {
 			return m, nil
 		} else {
 			return nil, err
@@ -100,4 +118,118 @@ func (e *ExplorerController) transactionDetail(r *http.Request) (map[string][]by
 		return nil, ErrNotTransactionHash
 	}
 
+}
+
+func (e *BlockExplorer) txDetailMap(tran *data.Transactor, height uint32, txIndex uint32) (map[string][]byte, error) {
+	m := map[string]interface{}{}
+
+	b, err := e.Kernel.Block(height)
+	if err != nil {
+		return nil, err
+	}
+	t := b.Body.Transactions[int(txIndex)]
+
+	cd, err := e.Kernel.Provider().Data(height)
+	if err != nil {
+		return nil, err
+	}
+
+	name, err := tran.NameByType(t.Type())
+	if err != nil {
+		m["err"] = "현재 지원하지 않는 transaction 입니다."
+	}
+	m["Type"] = name
+
+	m["Block Hash"] = cd.Header.Hash().String()
+
+	tm := time.Unix(int64(cd.Header.Timestamp()/uint64(time.Second)), 0)
+	m["Block Timestamp"] = tm.Format("2006-01-02 15:04:05")
+	m["Tx Hash"] = t.Hash().String()
+	tm = time.Unix(int64(t.Timestamp()/uint64(time.Second)), 0)
+	m["Tx TimeStamp"] = tm.Format("2006-01-02 15:04:05")
+	m["Chain"] = t.ChainCoord().String()
+
+	switch name {
+	case "fletacity.CreateAccount":
+		tx := t.(*citygame.CreateAccountTx)
+		m["Vin Count"] = fmt.Sprint(len(tx.Vin))
+		m["Vins"] = extractVin(tx.Vin)
+
+		m["KeyHash"] = tx.KeyHash.String()
+		m["UserID"] = tx.UserID
+		m["Reward"] = tx.Reward
+
+	case "fletacity.Demolition":
+		tx := t.(*citygame.DemolitionTx)
+		m["Vin Count"] = fmt.Sprint(len(tx.Vin))
+		m["Vins"] = extractVin(tx.Vin)
+
+		m["Address"] = tx.Address.String()
+		m["X"] = tx.X
+		m["Y"] = tx.Y
+	case "fletacity.Upgrade":
+		tx := t.(*citygame.UpgradeTx)
+		m["Vin Count"] = fmt.Sprint(len(tx.Vin))
+		m["Vins"] = extractVin(tx.Vin)
+
+		m["Address"] = tx.Address.String()
+		m["X"] = tx.X
+		m["Y"] = tx.Y
+
+		m["AreaType"] = tx.AreaType
+		m["TargetLevel"] = tx.TargetLevel
+
+	case "consensus.RevokeFormulation":
+		tx := t.(*consensus.RevokeFormulation)
+		m["Seq_"] = tx.Seq_
+		m["From_"] = tx.From_.String()
+		m["To"] = tx.To.String()
+
+	case "consensus.CreateFormulation":
+		tx := t.(*consensus.CreateFormulation)
+		m["Seq_"] = tx.Seq_
+		m["From_"] = tx.From_.String()
+		m["KeyHash"] = tx.KeyHash.String()
+	default:
+		bs, err := json.Marshal(&t)
+		if err != nil {
+			return map[string][]byte{"TxInfo": bs}, nil
+		}
+		return map[string][]byte{"TxInfo": []byte("")}, nil
+	}
+
+	bs, err := json.Marshal(&m)
+	return map[string][]byte{"TxInfo": bs}, nil
+}
+
+func (e *BlockExplorer) blockDetailMap(height uint32) (map[string][]byte, error) {
+	cd, err := e.Kernel.Provider().Data(height)
+	if err != nil {
+		return nil, err
+	}
+	b, err := e.Kernel.Block(height)
+	if err != nil {
+		return nil, err
+	}
+
+	tm := time.Unix(int64(cd.Header.Timestamp()/uint64(time.Second)), 0)
+	m := map[string]interface{}{}
+	m["Hash"] = cd.Header.Hash().String()
+	m["ChainCoord"] = b.Header.ChainCoord.String()
+	m["Height"] = strconv.Itoa(int(cd.Header.Height()))
+	m["Version"] = strconv.Itoa(int(cd.Header.Version()))
+	m["HashPrevBlock"] = cd.Header.PrevHash().String()
+	m["HashLevelRoot"] = b.Header.LevelRootHash.String()
+	m["Timestamp"] = tm.Format("2006-01-02 15:04:05")
+	m["FormulationAddress"] = b.Header.Formulator.String()
+	m["TimeoutCount"] = strconv.Itoa(int(b.Header.TimeoutCount))
+	m["Transaction Count"] = strconv.Itoa(len(b.Body.Transactions))
+
+	txs := []string{}
+	for _, t := range b.Body.Transactions {
+		txs = append(txs, t.Hash().String())
+	}
+	m["Transactions"] = txs
+	bs, err := json.Marshal(&m)
+	return map[string][]byte{"TxInfo": bs}, nil
 }

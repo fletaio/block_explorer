@@ -411,10 +411,6 @@ th, td {
     top: 0.46rem;
     content: "";
 }
-.timeline-3_items .timeline-3_item.Withdraw::before{background: #FFCE00;}
-.timeline-3_items .timeline-3_item.CreateAccount::before{background: #96E500;}
-.timeline-3_items .timeline-3_item.Burn::before{background: #6E45E5;}
-.timeline-3_items .timeline-3_item.Transfer::before{background: #7FE5FF;}
 .timeline-3_items .timeline-3_item .timeline-3_item-time{
     display: table-cell;
     vertical-align: top;
@@ -458,10 +454,76 @@ th, td {
     background-color: #34bfa3;
     color: #fff;
 }
-.badge.Withdraw {background-color: #FFCE00;color: #fff;}
-.badge.CreateAccount {background-color: #96E500;color: #fff;}
-.badge.Burn {background-color: #6E45E5;color: #fff;}
-.badge.Transfer {background-color: #7FE5FF;color: #fff;}
+
+.pagination {
+    display: block;
+    width: 100%;
+    padding-left: 0;
+    list-style: none;
+    border-radius: .25rem;
+    text-align: center;
+}
+
+.pagination li {
+    margin-left: 0.4rem;
+    display: inline-block;
+}
+
+.pagination li a {
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-block;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -moz-justify-content: center;
+    -ms-justify-content: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -moz-align-items: center;
+    -ms-align-items: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    text-align: center;
+    vertical-align: middle;
+    height: 2.25rem;
+    min-width: 2.25rem;
+    vertical-align: middle;
+    padding: 0.5rem;
+    text-align: center;
+    position: relative;
+}
+.pagination li.disabled a {
+    pointer-events: none;
+    opacity: 0.6;
+}
+.pagination li.fromTop a,
+.pagination li.toBottom a,
+.pagination li.previous a,
+.pagination li.next a {
+    background-color: #666;
+    color: #fff;
+}
+.pagination li.active a,
+.pagination li a:hover {
+    background-color: #337fff;
+    color: #fff;
+}
+
+.pagination li.fromTop a::before {
+    content: "<<";
+}
+.pagination li.toBottom a::before {
+    content: ">>";
+}
+.pagination li.previous a::before {
+    content: "<";
+}
+.pagination li.next a::before {
+    content: ">";
+}
 
 @media (max-width: 1024px) {
     .header {

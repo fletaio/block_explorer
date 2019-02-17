@@ -1,7 +1,6 @@
 package blockexplorer
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -58,7 +57,7 @@ func (e *BlockExplorer) lastestBlocks() (result blockInfosCase) {
 			status = 2
 		}
 
-		tm := time.Unix(int64(cd.Header.Timestamp/uint64(time.Second)), 0)
+		tm := time.Unix(int64(cd.Header.Timestamp()/uint64(time.Second)), 0)
 
 		result.AaData = append(result.AaData, blockInfos{
 			BlockHeight: i,
@@ -90,78 +89,9 @@ func (e *BlockExplorer) lastestTransactions() []txInfos {
 	return e.lastestTransactionList[0:8]
 }
 
-type chainInfosCase struct {
-	ITotalRecords        int          `json:"iTotalRecords"`
-	ITotalDisplayRecords int          `json:"iTotalDisplayRecords"`
-	SEcho                int          `json:"sEcho"`
-	SColumns             string       `json:"sColumns"`
-	AaData               []chainInfos `json:"aaData"`
-}
-type chainInfos struct {
-	DataType  string `json:"구분"`
-	BlockSize string `json:"블록 크기"`
-	SendTime  string `json:"블록 전송 시간"`
-	ApplyTime string `json:"블록 연결 시간"`
-}
-
-func (e *BlockExplorer) chainInfoTable() (result chainInfosCase) {
-	result.AaData = []chainInfos{}
-	result.ITotalRecords = 5
-	result.ITotalDisplayRecords = 5
-
-	result.AaData = append(result.AaData, chainInfos{
-		DataType:  "최소",
-		BlockSize: fmt.Sprintln(e.BlockInfo.minSize),
-		SendTime:  fmt.Sprintln(e.BlockInfo.minSend),
-		ApplyTime: fmt.Sprintln(e.BlockInfo.minApply),
-	})
-	result.AaData = append(result.AaData, chainInfos{
-		DataType:  "평균",
-		BlockSize: fmt.Sprintln(e.BlockInfo.avgSize),
-		SendTime:  fmt.Sprintln(e.BlockInfo.avgSend),
-		ApplyTime: fmt.Sprintln(e.BlockInfo.avgApply),
-	})
-	result.AaData = append(result.AaData, chainInfos{
-		DataType:  "95 %",
-		BlockSize: fmt.Sprintln(e.BlockInfo.sizeAt95),
-		SendTime:  fmt.Sprintln(e.BlockInfo.sendAt95),
-		ApplyTime: fmt.Sprintln(e.BlockInfo.applyAt95),
-	})
-	result.AaData = append(result.AaData, chainInfos{
-		DataType:  "99 %",
-		BlockSize: fmt.Sprintln(e.BlockInfo.sizeAt99),
-		SendTime:  fmt.Sprintln(e.BlockInfo.sendAt99),
-		ApplyTime: fmt.Sprintln(e.BlockInfo.applyAt99),
-	})
-	result.AaData = append(result.AaData, chainInfos{
-		DataType:  "최대",
-		BlockSize: fmt.Sprintln(e.BlockInfo.maxSize),
-		SendTime:  fmt.Sprintln(e.BlockInfo.maxSend),
-		ApplyTime: fmt.Sprintln(e.BlockInfo.maxApply),
-	})
-
-	return
-}
-
-func (e *BlockExplorer) paginationBlocks(r *http.Request) (result blockInfosCase) {
-	param := r.URL.Query()
-	startStr := param.Get("start")
-	lengthStr := param.Get("length")
-
-	start, err := strconv.Atoi(startStr)
-	if err != nil {
-		return
-	}
-	length, err := strconv.Atoi(lengthStr)
-	if err != nil {
-		return
-	}
-	currHeight := e.Kernel.Provider().Height()
-
-	result.ITotalRecords = int(currHeight)
-	result.ITotalDisplayRecords = int(currHeight)
-
-	result.AaData = []blockInfos{}
+func (e *BlockExplorer) blocks(start int, currHeight uint32) []blockInfos {
+	length := 10
+	aaData := []blockInfos{}
 
 	for i, j := currHeight-uint32(start), 0; i > 0 && j < length; i, j = i-1, j+1 {
 		b, err := e.Kernel.Block(i)
@@ -177,9 +107,9 @@ func (e *BlockExplorer) paginationBlocks(r *http.Request) (result blockInfosCase
 			status = 2
 		}
 
-		tm := time.Unix(int64(cd.Header.Timestamp/uint64(time.Second)), 0)
+		tm := time.Unix(int64(cd.Header.Timestamp()/uint64(time.Second)), 0)
 
-		result.AaData = append(result.AaData, blockInfos{
+		aaData = append(aaData, blockInfos{
 			BlockHeight: i,
 			BlockHash:   cd.Header.Hash().String(),
 			Time:        tm.Format("2006-01-02 15:04:05"),
@@ -187,6 +117,23 @@ func (e *BlockExplorer) paginationBlocks(r *http.Request) (result blockInfosCase
 			Txs:         strconv.Itoa(len(b.Body.Transactions)),
 		})
 	}
+
+	return aaData
+}
+
+func (e *BlockExplorer) paginationBlocks(r *http.Request) (result blockInfosCase) {
+	param := r.URL.Query()
+	startStr := param.Get("start")
+	start, err := strconv.Atoi(startStr)
+	if err != nil {
+		return
+	}
+	currHeight := e.Kernel.Provider().Height()
+
+	result.ITotalRecords = int(currHeight)
+	result.ITotalDisplayRecords = int(currHeight)
+
+	result.AaData = e.blocks(start, currHeight)
 
 	return
 }
@@ -199,30 +146,29 @@ type txInfosCase struct {
 	AaData               []txInfos `json:"aaData"`
 }
 
-func (e *BlockExplorer) paginationTxs(r *http.Request) (result txInfosCase) {
-	param := r.URL.Query()
-	startStr := param.Get("start")
-	lengthStr := param.Get("length")
-
-	start, err := strconv.Atoi(startStr)
-	if err != nil {
-		return
-	}
-	length, err := strconv.Atoi(lengthStr)
-	if err != nil {
-		return
-	}
-
-	result.ITotalRecords = len(e.lastestTransactionList)
-	result.ITotalDisplayRecords = len(e.lastestTransactionList)
-
-	result.AaData = []txInfos{}
-
+func (e *BlockExplorer) txs(start int, length int) []txInfos {
 	max := start + length
 	if max > len(e.lastestTransactionList) {
 		max = len(e.lastestTransactionList)
 	}
 
-	result.AaData = e.lastestTransactionList[start:max]
+	return e.lastestTransactionList[start:max]
+}
+
+func (e *BlockExplorer) paginationTxs(r *http.Request) (result txInfosCase) {
+	param := r.URL.Query()
+	startStr := param.Get("start")
+
+	start, err := strconv.Atoi(startStr)
+	if err != nil {
+		return
+	}
+	length := 10
+
+	result.ITotalRecords = len(e.lastestTransactionList)
+	result.ITotalDisplayRecords = len(e.lastestTransactionList)
+
+	result.AaData = e.txs(start, length)
+
 	return
 }

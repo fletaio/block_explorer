@@ -67,7 +67,8 @@ func renderNode(n *html.Node) []byte {
 		html.Render(w, n)
 		n = n.NextSibling
 	}
-	return buf.Bytes()
+
+	return []byte(html.UnescapeString(buf.String()))
 }
 
 type controll func(r *http.Request) (map[string][]byte, error)

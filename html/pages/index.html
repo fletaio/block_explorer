@@ -1,11 +1,9 @@
 <script fletaId="headScript">
     jQuery(document).ready(function(){
-        DashboardNodesChart.init()
         DashboardTransactionsChart.init()
         CurrentChainInfoAjax.init()
         LastestBlocksAjax.init()
         LastestTransactionsAjax.init()
-        TransactionTypePerBlockAjax.init()
     });
 </script>
 
@@ -142,24 +140,6 @@
                         </thead>
 
                         <tbody>
-                            <tr role="row" class="odd">
-                                <td tabindex="0"><a href="/blockDetail/?&amp;height=2130202" title="902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c"
-                                        target="_BLANK">2130202</a></td>
-                                <td><a href="/blockDetail/?hash=902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c" title="902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c"
-                                        target="_BLANK">902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c</a></td>
-                                <td><span title="2019-02-10 15:31:42">15:31:42</span></td>
-                                <td><span class="badge">Success</span></td>
-                                <td>0</td>
-                            </tr>
-                            <tr role="row" class="even">
-                                <td tabindex="0"><a href="/blockDetail/?&amp;height=2130201" title="aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108"
-                                        target="_BLANK">2130201</a></td>
-                                <td><a href="/blockDetail/?hash=aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108" title="aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108"
-                                        target="_BLANK">aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108</a></td>
-                                <td><span title="2019-02-10 15:31:41">15:31:41</span></td>
-                                <td><span class="badge badge-success">Success</span></td>
-                                <td>0</td>
-                            </tr>
                         </tbody>
                                 
 
@@ -215,14 +195,10 @@
                             <div class="timeline-3_item">
                                 <span class="timeline-3_item-time" id="tx-time">09:00</span>
                                 <div class="timeline-3_item-desc">
-                                    <span class="timeline-3_item-text" id="tx-hash">
+                                    <a target="_BLANK" id="tx-hash-atag"><span class="timeline-3_item-text" id="tx-hash">
                                         ...
-                                    </span><br>
-                                    <span class="timeline-3_item-user-name" id="tx-type">
-                                        <!-- <a href="#" class="m-link m-link--metal m-timeline-3__item-link" id="tx-type"> -->
-                                            ...
-                                        <!-- </a> -->
-                                    </span>
+                                    </span></a><br>
+                                    <span class="timeline-3_item-user-name" id="tx-type"></span>
                                 </div>
                             </div>
                         </div>

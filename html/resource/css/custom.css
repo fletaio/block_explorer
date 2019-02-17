@@ -25,9 +25,6 @@
 .fleta-table {
     table-layout: fixed;
 }
-.fleta-table {
-    table-layout: fixed;
-}
 .dataTables_wrapper table.dataTable.dtr-inline.collapsed.fleta-table>tbody>tr[role="row"]>td:first-child:before {
     content: "" !important;
 }
@@ -47,6 +44,14 @@
     font-weight: 600;
 }
 
+.fleta-table2 {
+}
+
+.fleta-table2 th {
+    text-align: left;
+}
+
+
 .fleta-nohead-table {
     margin-top: 32px;
 }
@@ -55,36 +60,6 @@
 }
 .fleta-m-portlet .m-timeline-3 .m-timeline-3__item {
     margin-bottom: 0.7rem;
-}
-
-.m-brand {
-    padding: 0 15px;    
-}
-
-.m-timeline-3__item.m-timeline-3__item--Transfer:before{background:#36a3f7}
-.m-timeline-3__item.m-timeline-3__item--Withdraw:before{background:#ffb822}
-.m-timeline-3__item.m-timeline-3__item--Burn:before{background:#9816f4}
-.m-timeline-3__item.m-timeline-3__item--CreateAccount:before{background:#34bfa3}
-.m-timeline-3__item.m-timeline-3__item--CreateMultiSigAccount:before{background:#5867dd}
-.m-timeline-3__item.m-timeline-3__item--Assign:before{background:#00c5dc}
-.m-timeline-3__item.m-timeline-3__item--Deposit:before{background:#716aca}
-.m-timeline-3__item.m-timeline-3__item--OpenAccount:before{background:#f4516c}
-.m-timeline-3__item.m-timeline-3__item--CreateFormulation:before{background:#bf3482}
-.m-timeline-3__item.m-timeline-3__item--RevokeFormulation:before{background:#34bf7d}
-.m-timeline-3__item.m-timeline-3__item--SolidityCreateContract:before{background:#98bf34}
-.m-timeline-3__item.m-timeline-3__item--SolidityCallContract:before{background:#bf7934}
-
-.m-footer {
-    overflow: hidden;
-    background-color: #001a38;
-    height: 70px;
-}
-.m-footer img {
-    margin: 5px;
-}
-
-.m-portlet__body > div {
-    overflow: hidden;
 }
 
 #fleta-formulators {
@@ -133,8 +108,8 @@
     border-radius: 5px;
 }
 
-.row--even > th,
-.row--even > td {
+.row-even > th,
+.row-even > td {
     background: #f9fcfb;
 }
 

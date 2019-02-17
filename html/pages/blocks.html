@@ -1,9 +1,64 @@
+<script fletaId="headScript">
+    function getPage(start) {
+        $.ajax({
+            url : "/data/paginationBlocks.data",
+            dataType : 'json',
+            data : {
+                start : start
+            },
+            success : function (data) {
+                var $dataBody = $("#dataBody");
+                putData($dataBody, data.aaData)
+                var start = data.aaData[0]["Block Height"];
+                pagination(start, data.iTotalRecords, -1)
+            }
+        })
+    }
+
+    function putData ($dataBody, data) {
+        $dataBody.empty()
+        var eo = 0;
+        for (var i = 0 ; i < data.length ; i++) {
+            var t = $("#rowTemplate").html();
+            t = t.replace(/{oddeven}/i, (eo++%2==0?"even":"odd"))
+
+            if (data[i].Time) {
+                var time = data[i].Time.split(" ")
+                if (time.length == 2) {
+                    data[i].ShotTime = time[1]
+                }
+            }
+
+            if (data[i].Status == 1) {
+                data[i].Status = "success"
+            } else {
+                data[i].Status = "fail"
+            }
+
+            for (var k in data[i]) {
+                if (data[i].hasOwnProperty(k)) {
+                    var v = data[i][k]
+                    t = t.replace(new RegExp("{"+k+"}", 'g'), v)
+                }
+            }
+            $dataBody.append(t)
+        }
+    }
+    var v = {{blockData}};
+
+    $(function () {
+        var $dataBody = $("#dataBody");
+        putData ($dataBody, v);
+        startHeight = v[0]["Block Height"];
+        pagination(startHeight, startHeight, -1);
+    })
+</script>
+
 <pageTitle>Blocks</pageTitle>
 
 <fletaBody>
 <div class="row">
     <div class="col-xl-12">
-
         <!--begin:: Widgets/Top Products-->
         <div class="portlet">
             <div class="portlet_body no-title-body">
@@ -19,29 +74,22 @@
                         </tr>
                     </thead>
 
-                    <tbody>
-                        <tr role="row" class="odd">
-                            <td tabindex="0"><a href="/blockDetail/?height=2130202" title="902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c"
-                                    target="_BLANK">2130202</a></td>
-                            <td><a href="/blockDetail/?hash=902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c" title="902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c"
-                                    target="_BLANK">902bd6ad39047fc61d3183b4469f2635e599022799fd3a613055420166a2f26c</a></td>
-                            <td><span title="2019-02-10 15:31:42">15:31:42</span></td>
-                            <td><span class="badge">Success</span></td>
-                            <td>0</td>
-                        </tr>
-                        <tr role="row" class="even">
-                            <td tabindex="0"><a href="/blockDetail/?height=2130201" title="aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108"
-                                    target="_BLANK">2130201</a></td>
-                            <td><a href="/blockDetail/?hash=aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108" title="aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108"
-                                    target="_BLANK">aced3ce6eaeb66fc077679a81fc74c448e8a6eb80307d9752124f87ba2566108</a></td>
-                            <td><span title="2019-02-10 15:31:41">15:31:41</span></td>
-                            <td><span class="badge badge-success">Success</span></td>
-                            <td>0</td>
-                        </tr>
+                    <tbody id="dataBody">
                     </tbody>
-                            
-
+                    
                 </table>
+                <table style="display: none;">
+                    <tbody id="rowTemplate" >
+                    <tr role="row" class="{oddeven}">
+                        <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}"target="_BLANK">{Block Height}</a></td>
+                        <td><a href="/blockDetail?hash={Block Hash}" title="{Block Hash}"target="_BLANK">{Block Hash}</a></td>
+                        <td><span title="{Time}">{ShotTime}</span></td>
+                        <td><span class="badge badge-{Status}">{Status}</span></td>
+                        <td>{Txs}</td>
+                    </tr>
+                    </tbody>
+                </table>
+                {{pagination}}
                 <!--end: Datatable -->
             </div>
         </div>
