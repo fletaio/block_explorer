@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"git.fleta.io/fleta/core/block"
 )
 
 func (e *BlockExplorer) formulators() []countInfo {
@@ -24,11 +26,15 @@ type typePerBlock struct {
 }
 
 type blockInfos struct {
-	BlockHeight uint32 `json:"Block Height"`
-	BlockHash   string `json:"Block Hash"`
-	Time        string `json:"Time"`
-	Status      string `json:"Status"`
-	Txs         string `json:"Txs"`
+	BlockHeight uint32   `json:"Block Height"`
+	BlockHash   string   `json:"Block Hash"`
+	Time        string   `json:"Time"`
+	Status      string   `json:"Status"`
+	Txs         string   `json:"Txs"`
+	Formulator  string   `json:"Formulator"`
+	Msg         string   `json:"Msg"`
+	Signs       []string `json:"Signs"`
+	BlockCount  uint32   `json:"BlockCount"`
 }
 type blockInfosCase struct {
 	ITotalRecords        int          `json:"iTotalRecords"`
@@ -48,6 +54,9 @@ func (e *BlockExplorer) lastestBlocks() (result blockInfosCase) {
 		if err != nil {
 			continue
 		}
+
+		b.Header.Hash().String()
+
 		cd, err := e.Kernel.Provider().Data(i)
 		if err != nil {
 			continue
@@ -55,6 +64,16 @@ func (e *BlockExplorer) lastestBlocks() (result blockInfosCase) {
 		status := 1
 		if b.Header.TimeoutCount > 0 {
 			status = 2
+		}
+
+		bs := block.Signed{
+			HeaderHash:         cd.Header.Hash(),
+			GeneratorSignature: cd.Signatures[0],
+		}
+		Signs := []string{
+			cd.Signatures[1].String(),
+			cd.Signatures[2].String(),
+			cd.Signatures[3].String(),
 		}
 
 		tm := time.Unix(int64(cd.Header.Timestamp()/uint64(time.Second)), 0)
@@ -65,6 +84,10 @@ func (e *BlockExplorer) lastestBlocks() (result blockInfosCase) {
 			Time:        tm.Format("2006-01-02 15:04:05"),
 			Status:      strconv.Itoa(status),
 			Txs:         strconv.Itoa(len(b.Body.Transactions)),
+			Formulator:  b.Header.Formulator.String(),
+			Msg:         bs.Hash().String(),
+			Signs:       Signs,
+			BlockCount:  e.GetBlockCount(b.Header.Formulator.String()),
 		})
 	}
 

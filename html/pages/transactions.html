@@ -24,7 +24,7 @@
         var eo = 0;
         for (var i = 0 ; i < data.length ; i++) {
             var t = $("#txTemplate").html();
-            t = t.replace(/{oddeven}/i, (eo++%2==0?"even":"odd"))
+            t = t.replace(/{oddeven}/g, (eo++%2==0?"even":"odd"))
 
             if (data[i].Time) {
                 var d = new Date(data[i].Time/1000000)

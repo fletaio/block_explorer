@@ -1,6 +1,7 @@
 package blockexplorer
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,14 +64,6 @@ type countInfo struct {
 	Count int   `json:"count"`
 }
 
-type currentChainInfo struct {
-	Foumulators         int    `json:"foumulators"`
-	Blocks              uint32 `json:"blocks"`
-	Transactions        int    `json:"transactions"`
-	currentTransactions int
-	lastHeight          uint64
-}
-
 //NewBlockExplorer TODO
 func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, error) {
 	opts := badger.DefaultOptions
@@ -119,6 +112,50 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 		db: db,
 	}
 
+	if err := e.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(blockChainInfoBytes)
+		if err != nil {
+			if err != badger.ErrKeyNotFound {
+				return err
+			}
+		} else {
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			buf := bytes.NewBuffer(value)
+			e.CurrentChainInfo.ReadFrom(buf)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, ErrDbNotClear
+	}
+
+	currHeight := e.Kernel.Provider().Height()
+
+	for i := int(currHeight); i > 0; i-- {
+		if len(e.lastestTransactionList) >= 500 {
+			break
+		}
+		height := uint32(i)
+		b, err := e.Kernel.Block(height)
+		if err != nil {
+			continue
+		}
+		txs := b.Body.Transactions
+		for _, tx := range txs {
+			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+			e.lastestTransactionList = append([]txInfos{txInfos{
+				TxHash:    tx.Hash().String(),
+				BlockHash: b.Header.Hash().String(),
+				ChainID:   b.Header.ChainCoord.String(),
+				Time:      tx.Timestamp(),
+				TxType:    name,
+			}}, e.lastestTransactionList...)
+		}
+	}
+
 	go func(e *BlockExplorer) {
 		for {
 			time.Sleep(time.Second)
@@ -133,7 +170,7 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 	return e, nil
 }
 
-var blockHeghtBytes = []byte("blockHeght")
+var blockChainInfoBytes = []byte("blockChainInfo")
 
 func (e *BlockExplorer) LastestTransactionLen() int {
 	return len(e.lastestTransactionList)
@@ -144,41 +181,6 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	e.CurrentChainInfo.currentTransactions = 0
 	e.CurrentChainInfo.Foumulators = e.Kernel.CandidateCount()
 
-	var height uint32
-	if err := e.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(blockHeghtBytes)
-		if err != nil {
-			if err != badger.ErrKeyNotFound {
-				return err
-			}
-			height = 0
-		} else {
-			value, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
-			}
-			height = util.BytesToUint32(value)
-		}
-
-		return nil
-	}); err != nil {
-		return ErrDbNotClear
-	}
-
-	if err := e.db.Update(func(txn *badger.Txn) error {
-		for e.CurrentChainInfo.Blocks > height {
-			height++
-			err := e.updateHashs(txn, height)
-			if err != nil {
-				return err
-			}
-		}
-		txn.Set(blockHeghtBytes, util.Uint32ToBytes(height))
-		return nil
-	}); err != nil {
-		return err
-	}
-
 	newTxs := []txInfos{}
 	for i := int(currHeight); i > int(e.CurrentChainInfo.Blocks) && i >= 0; i-- {
 		height := uint32(i)
@@ -188,16 +190,18 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		}
 		e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
 
-		txs := b.Body.Transactions
-		for _, tx := range txs {
-			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
-			newTxs = append(newTxs, txInfos{
-				TxHash:    tx.Hash().String(),
-				BlockHash: b.Header.Hash().String(),
-				ChainID:   b.Header.ChainCoord.String(),
-				Time:      tx.Timestamp(),
-				TxType:    name,
-			})
+		if len(e.lastestTransactionList) < 500 {
+			txs := b.Body.Transactions
+			for _, tx := range txs {
+				name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+				newTxs = append(newTxs, txInfos{
+					TxHash:    tx.Hash().String(),
+					BlockHash: b.Header.Hash().String(),
+					ChainID:   b.Header.ChainCoord.String(),
+					Time:      tx.Timestamp(),
+					TxType:    name,
+				})
+			}
 		}
 
 		if err := e.db.Update(func(txn *badger.Txn) error {
@@ -215,12 +219,6 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	}
 
 	e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
-	if err := e.db.Update(func(txn *badger.Txn) error {
-		txn.Set(blockHeghtBytes, util.Uint32ToBytes(currHeight))
-		return nil
-	}); err != nil {
-		return err
-	}
 
 	if len(e.lastestTransactionList) > 500 {
 		e.lastestTransactionList = e.lastestTransactionList[len(e.lastestTransactionList)-500 : len(e.lastestTransactionList)]
@@ -228,6 +226,18 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 
 	e.CurrentChainInfo.Transactions += e.CurrentChainInfo.currentTransactions
 	e.CurrentChainInfo.Blocks = currHeight
+
+	if err := e.db.Update(func(txn *badger.Txn) error {
+		buf := &bytes.Buffer{}
+		_, err := e.CurrentChainInfo.WriteTo(buf)
+		if err != nil {
+			return err
+		}
+		txn.Set(blockChainInfoBytes, buf.Bytes())
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -244,6 +254,22 @@ func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
 		return err
 	}
 
+	formulatorAddr := []byte("formulator" + b.Header.Formulator.String())
+	item, err := txn.Get(formulatorAddr)
+	if err != nil {
+		if err != badger.ErrKeyNotFound {
+			return err
+		}
+		txn.Set(formulatorAddr, util.Uint32ToBytes(1))
+	} else {
+		value, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+		height = util.BytesToUint32(value)
+		txn.Set(formulatorAddr, util.Uint32ToBytes(height+1))
+	}
+
 	txs := b.Body.Transactions
 	for i, tx := range txs {
 		h := tx.Hash().String()
@@ -253,6 +279,28 @@ func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
 		}
 	}
 	return nil
+}
+
+func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
+	formulatorKey := []byte("formulator" + formulatorAddr)
+	e.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(formulatorKey)
+		if err != nil {
+			if err != badger.ErrKeyNotFound {
+				return err
+			}
+			height = 0
+		} else {
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			height = util.BytesToUint32(value)
+		}
+
+		return nil
+	})
+	return
 }
 
 func appendListLimit(ci []countInfo, count int, limit int) []countInfo {

@@ -10,6 +10,7 @@
     -ms-flex-direction: column;
     flex-direction: column;
 }
+
 .page{}
 
 .header{
@@ -395,10 +396,9 @@ th, td {
     transition: width 0.2s ease;
 }
 
-
 .timeline-3_items{}
 .timeline-3_items .timeline-3_item{
-    margin-bottom: 1rem;
+    margin-bottom: 0.58rem;
     position: relative;
 }
 .timeline-3_items .timeline-3_item::before{
@@ -422,13 +422,20 @@ th, td {
     width: 3.57rem;
 }
 .timeline-3_items .timeline-3_item .timeline-3_item-desc{
-    display: table-cell;
+    display: block;
     width: 100%;
     vertical-align: top;
     font-size: 1rem;
     padding-left: 7rem;
 }
-.timeline-3_items .timeline-3_item .timeline-3_item-desc a{}
+.timeline-3_items .timeline-3_item .timeline-3_item-desc a{
+    width: 100%;
+    display: inline-block;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    height: 1.2em;
+    white-space: nowrap;
+}
 .timeline-3_items .timeline-3_item .timeline-3_item-desc .timeline-3_item-text{
     font-size: 1rem;
     font-weight: 400;
@@ -437,7 +444,7 @@ th, td {
 .timeline-3_items .timeline-3_item .timeline-3_item-desc .timeline-3_item-user-name{}
 
 .badge {
-    background: #eaeaea;
+    background-color: #eaeaea;
     color: #444;
     font-size: 0.8rem;
     line-height: 20px;
@@ -449,10 +456,6 @@ th, td {
     letter-spacing: 0.6px;
     padding: 1px 10px;
     border-radius: .75rem;
-}
-.badge.badge-success {
-    background-color: #34bfa3;
-    color: #fff;
 }
 
 .pagination {
@@ -523,6 +526,82 @@ th, td {
 }
 .pagination li.next a::before {
     content: ">";
+}
+
+.fleta-table {
+    table-layout: fixed;
+}
+.fleta-table th {
+    min-width: 100px
+}
+.fleta-table th,
+.fleta-table td {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.fleta-table>thead {
+    background-color: #f4f3f8;
+}
+.fleta-table>thead>tr>th {
+    font-weight: 600;
+}
+.fleta-table .hide{
+    display:none;
+}
+
+.fleta-table2 {
+}
+
+.fleta-table2 th {
+    text-align: left;
+}
+
+.fleta-nohead-table {
+    margin-top: 32px;
+}
+.fleta-m-portlet {
+    overflow: hidden;
+}
+.fleta-m-portlet .m-timeline-3 .m-timeline-3__item {
+    margin-bottom: 0.7rem;
+}
+
+#fleta_blocks {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+#fleta_blocks .blockHashSpan {
+    width:200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#fletaObservers {
+    text-align: center;
+}
+#fletaFormulrator {
+    text-align: center;
+}
+
+#transactions-item-template {
+    display: none;
+    visibility: hidden;
+}
+
+.fleta-chart-tooltip {
+    pointer-events: none;
+    position:absolute;
+    background-color:lightgray;
+    padding:5px;
+    display: none;
+    border-radius: 5px;
+}
+
+.row-even > th,
+.row-even > td {
+    background: #f9fcfb;
 }
 
 @media (max-width: 1024px) {

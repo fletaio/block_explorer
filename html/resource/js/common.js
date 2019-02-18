@@ -1,7 +1,3 @@
-const numberWithCommas = (x) => {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
 var FletaColor = d3.scale.ordinal()
     .domain(["Transfer", "Withdraw", "Burn", "CreateAccount", "CreateMultiSigAccount","Assign","Deposit","OpenAccount","CreateFormulation","RevokeFormulation","SolidityCreateContract","SolidityCallContract"])
     .range([
@@ -142,6 +138,7 @@ lineChart.prototype.removeTooltip = function(This) {
 
 lineChart.prototype.drawTooltip = function (This) {
     return () => {
+        This.tooltip.style('display', 'block');
         const time = Math.floor(This.x.invert(d3.mouse(This.tipBox.node())[0])+0.5);
 
         This.states.sort((a, b) => {
@@ -164,9 +161,10 @@ lineChart.prototype.drawTooltip = function (This) {
         var y = coordinates[1];
 
         var d = new Date((This.timeMin*1000) + (time*1000))
-        This.tooltip.html(formatDate(d, "yyyy-MM-dd<br/>HH:mm:ss"))
-            // .attr('style', "left:"+(d3.event.pageX + 20 - This.w )+"px;top:"+(d3.event.pageY - 20 - This.h )+"px;display: block" )
-            .attr('style', "left:"+(x + 20 )+"px;top:"+(y + 100 )+"px;display: block" )
+        This.tooltip
+            .style("left", (x + 20 )+"px")
+            .style("top", (y + 100 )+"px")
+            .html(formatDate(d, "yyyy-MM-dd<br/>HH:mm:ss"))
             .append('div')
             .style('color', This.color)
             .html(() => {
