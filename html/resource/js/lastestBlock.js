@@ -1,7 +1,7 @@
 var LastestBlocksAjax={
     lestestBlockTemplate: `
 <tr class="{oddeven}">
-    <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK"><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK">{Block Height}</a></a></td>
+    <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK">{Block Height}</a></td>
     <td><a href="/blockDetail?hash={Block Hash}" title="{Block Hash}"target="_BLANK">{Block Hash}</a></td>
     <td class="{hidelv2}"><span title="{Time}">{Shot Time}</span></td>
     <td class="{hidelv1}"><span class="badge badge-{Status}">{Status}</span></td>
@@ -10,7 +10,7 @@ var LastestBlocksAjax={
     `,
     observersTemplate: `
 <tr class="{oddeven}">
-    <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK"><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK">{Block Height}</a></a></td>
+    <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK">{Block Height}</a></td>
     <td>{Formulator}</td>
     <td>{OB1}</td>
     <td>{OB2}</td>
@@ -21,7 +21,7 @@ var LastestBlocksAjax={
     `,
     formulratorTemplate: `
 <tr class="{oddeven}">
-    <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK"><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK">{Block Height}</a></a></td>
+    <td><a href="/blockDetail?height={Block Height}" title="{Block Hash}" target="_BLANK">{Block Height}</a></td>
     <td>{Formulator}</td>
     <td>{BlockCount}</td>
 </tr>

@@ -10,10 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
-	"git.fleta.io/fleta/block_explorer/template"
+	"git.fleta.io/fleta/city_game/block_explorer/template"
 	"git.fleta.io/fleta/common/util"
 	"git.fleta.io/fleta/core/kernel"
 	"github.com/dgraph-io/badger"
@@ -66,6 +67,7 @@ type countInfo struct {
 
 //NewBlockExplorer TODO
 func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, error) {
+	os.Remove(dbPath) //TODO REMOVE THIS CODE
 	opts := badger.DefaultOptions
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
@@ -134,25 +136,24 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 
 	currHeight := e.Kernel.Provider().Height()
 
-	for i := int(currHeight); i > 0; i-- {
+	for i := currHeight; i > 0; i-- {
 		if len(e.lastestTransactionList) >= 500 {
 			break
 		}
-		height := uint32(i)
-		b, err := e.Kernel.Block(height)
+		b, err := e.Kernel.Block(i)
 		if err != nil {
 			continue
 		}
 		txs := b.Body.Transactions
 		for _, tx := range txs {
 			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
-			e.lastestTransactionList = append([]txInfos{txInfos{
+			e.lastestTransactionList = append(e.lastestTransactionList, txInfos{
 				TxHash:    tx.Hash().String(),
 				BlockHash: b.Header.Hash().String(),
 				ChainID:   b.Header.ChainCoord.String(),
 				Time:      tx.Timestamp(),
 				TxType:    name,
-			}}, e.lastestTransactionList...)
+			})
 		}
 	}
 
@@ -190,23 +191,21 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		}
 		e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
 
-		if len(e.lastestTransactionList) < 500 {
-			txs := b.Body.Transactions
-			for _, tx := range txs {
-				name, _ := e.Kernel.Transactor().NameByType(tx.Type())
-				newTxs = append(newTxs, txInfos{
-					TxHash:    tx.Hash().String(),
-					BlockHash: b.Header.Hash().String(),
-					ChainID:   b.Header.ChainCoord.String(),
-					Time:      tx.Timestamp(),
-					TxType:    name,
-				})
-			}
+		txs := b.Body.Transactions
+		for _, tx := range txs {
+			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+			newTxs = append(newTxs, txInfos{
+				TxHash:    tx.Hash().String(),
+				BlockHash: b.Header.Hash().String(),
+				ChainID:   b.Header.ChainCoord.String(),
+				Time:      tx.Timestamp(),
+				TxType:    name,
+			})
 		}
 
 		if err := e.db.Update(func(txn *badger.Txn) error {
 			//start block hash update
-			err = e.updateHashs(txn, height)
+			err = e.updateHashs(txn, height, currHeight)
 			if err != nil {
 				return err
 			}
@@ -218,10 +217,11 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 
 	}
 
-	e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
-
-	if len(e.lastestTransactionList) > 500 {
-		e.lastestTransactionList = e.lastestTransactionList[len(e.lastestTransactionList)-500 : len(e.lastestTransactionList)]
+	if len(newTxs) > 0 {
+		e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
+		if len(e.lastestTransactionList) > 500 {
+			e.lastestTransactionList = e.lastestTransactionList[len(e.lastestTransactionList)-500 : len(e.lastestTransactionList)]
+		}
 	}
 
 	e.CurrentChainInfo.Transactions += e.CurrentChainInfo.currentTransactions
@@ -242,7 +242,7 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	return nil
 }
 
-func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
+func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32, currHeight uint32) error {
 	b, err := e.Kernel.Block(height)
 	if err != nil {
 		return err
@@ -266,15 +266,15 @@ func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
 		if err != nil {
 			return err
 		}
-		height = util.BytesToUint32(value)
+		height := util.BytesToUint32(value)
 		txn.Set(formulatorAddr, util.Uint32ToBytes(height+1))
 	}
 
 	txs := b.Body.Transactions
 	for i, tx := range txs {
-		h := tx.Hash().String()
+		h := tx.Hash()
 		v := append(value, util.Uint32ToBytes(uint32(i))...)
-		if err := txn.Set([]byte(h), v); err != nil {
+		if err := txn.Set(h[:], v); err != nil {
 			return err
 		}
 	}
@@ -312,17 +312,18 @@ func appendListLimit(ci []countInfo, count int, limit int) []countInfo {
 		Count: count,
 	})
 	return ci
+
 }
 
 // StartExplorer is start web server
-func (e *BlockExplorer) StartExplorer() {
+func (e *BlockExplorer) StartExplorer(port int) {
 
 	e.Template.AddController("", NewExplorerController(e.db, e))
 
 	http.HandleFunc("/data/", e.dataHandler)
 	http.HandleFunc("/", e.pageHandler)
 
-	panic(http.ListenAndServe(":8088", nil))
+	panic(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }
 
 //AddHandleFunc TODO
@@ -375,8 +376,6 @@ func (e *BlockExplorer) dataHandler(w http.ResponseWriter, r *http.Request) {
 	order := r.URL.Path[len("/data/"):]
 
 	switch order {
-	case "formulators.data":
-		e.printJSON(e.formulators(), w)
 	case "transactions.data":
 		e.printJSON(e.transactions(), w)
 	case "currentChainInfo.data":

@@ -40,7 +40,7 @@
 .header .container .mobile-menu {
     display: none;
 }
-.header .container .stack .brand{width: 255px;height: 100%;display: table;table-layout: fixed;padding: 0px 25px;/* background-color: #1b2436; */}
+.header .container .stack .brand{width: 255px;height: 100%;display: table;table-layout: fixed;padding: 0px 25px;}
 .header .container .stack .brand .floting {
     display: table-cell;
     vertical-align: middle;
@@ -52,6 +52,8 @@
 }
 .header .container .stack .brand .floting a img{
     width: 143px;
+    position: absolute;
+    top: 12px;
 }
 .header .header-head{
     display: table-cell;
@@ -81,6 +83,7 @@
     display: table-cell;
     padding: 0 10px 0 25px;
     vertical-align: middle;
+    filter: grayscale(100);
 }
 .header .header-head .header-menu .menu_nav .menu_item .menu_link{}
 .header .header-head .header-menu .menu_nav .menu_item .menu_link .text{
@@ -91,14 +94,14 @@
     font-family: Poppins;
     font-size: 1.07rem;
     text-transform: initial;
-    color: #676c7b;
+    color:#337fff;
 }
 
-.header .header-head .header-menu .menu_nav .menu_item.activeDashboard.Dashboard .menu_link .text,
-.header .header-head .header-menu .menu_nav .menu_item.activeBlocks.Blocks .menu_link .text,
-.header .header-head .header-menu .menu_nav .menu_item.activeTransactions.Transactions .menu_link .text,
-.header .header-head .header-menu .menu_nav .menu_item .menu_link:hover .text {
-    color:#337fff;
+.header .header-head .header-menu .menu_nav .menu_item.activeDashboard.Dashboard,
+.header .header-head .header-menu .menu_nav .menu_item.activeBlocks.Blocks,
+.header .header-head .header-menu .menu_nav .menu_item.activeTransactions.Transactions,
+.header .header-head .header-menu .menu_nav .menu_item:hover {
+    filter: grayscale(0);
 }
 
 .header .header-head .header-menu .menu_nav .menu_item .menu_link > i {
@@ -113,17 +116,9 @@
     background-repeat: no-repeat;
 }
 
-.header .header-head .header-menu .menu_nav .menu_item .menu_link .dashboard{background-image: url(/images/icon-dashboard-w.png);}
-.header .header-head .header-menu .menu_nav .menu_item .menu_link:hover .dashboard{background-image: url(/images/icon-dashboard.png);}
-.header .header-head .header-menu .menu_nav .menu_item.activeDashboard.Dashboard .menu_link .dashboard{background-image: url(/images/icon-dashboard.png);}
-
-.header .header-head .header-menu .menu_nav .menu_item .menu_link .blocks{background-image: url(/images/icon-blocks-w.png);}
-.header .header-head .header-menu .menu_nav .menu_item .menu_link:hover .blocks{background-image: url(/images/icon-blocks.png);}
-.header .header-head .header-menu .menu_nav .menu_item.activeBlocks.Blocks .menu_link .blocks{background-image: url(/images/icon-blocks.png);}
-
-.header .header-head .header-menu .menu_nav .menu_item .menu_link .transactions{background-image: url(/images/icon-transaction-w.png);}
-.header .header-head .header-menu .menu_nav .menu_item .menu_link:hover .transactions{background-image: url(/images/icon-transaction.png);}
-.header .header-head .header-menu .menu_nav .menu_item.activeTransactions.Transactions .menu_link .transactions{background-image: url(/images/icon-transaction.png);}
+.header .header-head .header-menu .menu_nav .menu_item .menu_link .dashboard{background-image: url(/images/icon-dashboard.png);}
+.header .header-head .header-menu .menu_nav .menu_item .menu_link .blocks{background-image: url(/images/icon-blocks.png);}
+.header .header-head .header-menu .menu_nav .menu_item .menu_link .transactions{background-image: url(/images/icon-transaction.png);}
 
 .desktop{
     transition: width 0.2s ease;
@@ -312,7 +307,7 @@
     border-right: 0;
 }
 
-.col,.col-xl-4,.col-xl-8,.col-xl-6
+.col,.col-xl-12,.col-xl-4,.col-xl-8,.col-xl-6
 {
     position: relative;
     width: 100%;
@@ -380,10 +375,10 @@
 
 th, td {
     vertical-align: middle;
-    border: 1px solid #f4f5f8;
+    border: 1px solid #ececec;
     padding: .75rem;
     vertical-align: top;
-    border-top: 1px solid #f4f5f8;
+    border-top: 1px solid #ececec;
 }
 
 .footer{
@@ -540,7 +535,7 @@ th, td {
     white-space: nowrap;
     overflow: hidden;
 }
-.fleta-table>thead {
+.fleta-table th {
     background-color: #f4f3f8;
 }
 .fleta-table>thead>tr>th {
@@ -555,6 +550,13 @@ th, td {
 
 .fleta-table2 th {
     text-align: left;
+}
+
+.fleta-table3 {
+}
+.fleta-table3 th,.fleta-table3 td {
+    vertical-align: middle;
+    text-align: center;
 }
 
 .fleta-nohead-table {
@@ -868,7 +870,12 @@ th, td {
     }
 }
 @media (min-width: 1200px) {
-
+    .col-xl-12 {
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 100%;
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
     .desktop .wrapper .row .col-xl-6{
         -webkit-box-flex: 0;
         -ms-flex: 0 0 50%;
