@@ -220,7 +220,7 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	if len(newTxs) > 0 {
 		e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
 		if len(e.lastestTransactionList) > 500 {
-			e.lastestTransactionList = e.lastestTransactionList[len(e.lastestTransactionList)-500 : len(e.lastestTransactionList)]
+			e.lastestTransactionList = e.lastestTransactionList[:500]
 		}
 	}
 

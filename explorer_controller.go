@@ -2,14 +2,11 @@ package blockexplorer
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
-	"git.fleta.io/fleta/core/consensus"
-
-	citygame "git.fleta.io/fleta/city_game/city_game_context"
+	"git.fleta.io/fleta/common/hash"
 
 	"git.fleta.io/fleta/common/util"
 	"git.fleta.io/fleta/core/data"
@@ -90,11 +87,14 @@ func (e *ExplorerController) BlockDetail(r *http.Request) (map[string][]byte, er
 
 func (e *ExplorerController) TransactionDetail(r *http.Request) (map[string][]byte, error) {
 	param := r.URL.Query()
-	hash := param.Get("hash")
-	// heightStr := param.Get("height")
+	hashStr := param.Get("hash")
+	h, err := hash.ParseHex(hashStr)
+	if err != nil {
+		return nil, err
+	}
 	var v []byte
 	if err := e.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(hash))
+		item, err := txn.Get(h[:])
 		if err != nil {
 			return err
 		}
@@ -149,56 +149,17 @@ func (e *BlockExplorer) txDetailMap(tran *data.Transactor, height uint32, txInde
 	m["Tx TimeStamp"] = tm.Format("2006-01-02 15:04:05")
 	m["Chain"] = t.ChainCoord().String()
 
-	switch name {
-	case "fletacity.CreateAccount":
-		tx := t.(*citygame.CreateAccountTx)
-		m["Vin Count"] = fmt.Sprint(len(tx.Vin))
-		m["Vins"] = extractVin(tx.Vin)
-
-		m["KeyHash"] = tx.KeyHash.String()
-		m["UserID"] = tx.UserID
-		m["Reward"] = tx.Reward
-
-	case "fletacity.Demolition":
-		tx := t.(*citygame.DemolitionTx)
-		m["Vin Count"] = fmt.Sprint(len(tx.Vin))
-		m["Vins"] = extractVin(tx.Vin)
-
-		m["Address"] = tx.Address.String()
-		m["X"] = tx.X
-		m["Y"] = tx.Y
-	case "fletacity.Upgrade":
-		tx := t.(*citygame.UpgradeTx)
-		m["Vin Count"] = fmt.Sprint(len(tx.Vin))
-		m["Vins"] = extractVin(tx.Vin)
-
-		m["Address"] = tx.Address.String()
-		m["X"] = tx.X
-		m["Y"] = tx.Y
-
-		m["AreaType"] = tx.AreaType
-		m["TargetLevel"] = tx.TargetLevel
-
-	case "consensus.RevokeFormulation":
-		tx := t.(*consensus.RevokeFormulation)
-		m["Seq_"] = tx.Seq_
-		m["From_"] = tx.From_.String()
-		m["To"] = tx.To.String()
-
-	case "consensus.CreateFormulation":
-		tx := t.(*consensus.CreateFormulation)
-		m["Seq_"] = tx.Seq_
-		m["From_"] = tx.From_.String()
-		m["KeyHash"] = tx.KeyHash.String()
-	default:
-		bs, err := json.Marshal(&t)
-		if err != nil {
-			return map[string][]byte{"TxInfo": bs}, nil
-		}
-		return map[string][]byte{"TxInfo": []byte("")}, nil
+	bs, err := json.Marshal(&m)
+	if err != nil {
+		return nil, err
 	}
 
-	bs, err := json.Marshal(&m)
+	txbs, err := t.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	bs = append(bs[:len(bs)-1], byte(','))
+	bs = append(bs, txbs[1:]...)
 	return map[string][]byte{"TxInfo": bs}, nil
 }
 
