@@ -147,7 +147,6 @@ func (e *BlockExplorer) txDetailMap(tran *data.Transactor, height uint32, txInde
 	m["Tx Hash"] = t.Hash().String()
 	tm = time.Unix(int64(t.Timestamp()/uint64(time.Second)), 0)
 	m["Tx TimeStamp"] = tm.Format("2006-01-02 15:04:05")
-	m["Chain"] = t.ChainCoord().String()
 
 	bs, err := json.Marshal(&m)
 	if err != nil {
