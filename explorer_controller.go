@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
-	"git.fleta.io/fleta/common/hash"
+	"github.com/fletaio/common/hash"
 
-	"git.fleta.io/fleta/common/util"
-	"git.fleta.io/fleta/core/data"
+	"github.com/fletaio/common/util"
+	"github.com/fletaio/core/data"
 	"github.com/dgraph-io/badger"
 )
 

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.fleta.io/fleta/core/block"
+	"github.com/fletaio/core/block"
 )
 
 func (e *BlockExplorer) formulators() []countInfo {

@@ -1,7 +1,7 @@
 package blockexplorer
 
 import (
-	"git.fleta.io/fleta/core/transaction"
+	"github.com/fletaio/core/transaction"
 )
 
 func extractVin(vin []*transaction.TxIn) interface{} {

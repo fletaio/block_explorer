@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"git.fleta.io/fleta/common/util"
-	"git.fleta.io/fleta/core/kernel"
-	"git.fleta.io/fleta/framework/template"
+	"github.com/fletaio/common/util"
+	"github.com/fletaio/core/kernel"
+	"github.com/fletaio/framework/template"
 	"github.com/dgraph-io/badger"
 )
 
