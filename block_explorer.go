@@ -176,26 +176,38 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 
 	e.CurrentChainInfo.currentTransactions = 0
 	e.CurrentChainInfo.Foumulators = e.Kernel.CandidateCount()
+	minHeight := e.CurrentChainInfo.Blocks
+	e.CurrentChainInfo.Blocks = currHeight
 
 	newTxs := []txInfos{}
-	for i := int(currHeight - currHeight%2); i > int(e.CurrentChainInfo.Blocks) && i >= 0; i -= 2 {
-		height := uint32(i)
+	newTxCountInfos := []*countInfo{}
+	for i := currHeight - currHeight%2; i > minHeight && i >= 0; i -= 2 {
+		height := i
 		b, err := e.Kernel.Block(height)
 		if err != nil {
 			continue
 		}
-		height2 := uint32(i - 1)
+		height2 := i - 1
 		b2, err := e.Kernel.Block(height2)
 		if err != nil {
 			continue
 		}
 		e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
 		e.CurrentChainInfo.currentTransactions += len(b2.Body.Transactions)
-		e.transactionCountList = prependListLimit(e.transactionCountList, len(b.Body.Transactions)+len(b2.Body.Transactions), int64(b.Header.Timestamp()), 200)
+
+		if len(newTxCountInfos) < 200 {
+			newTxCountInfos = append(newTxCountInfos, &countInfo{
+				Time:  int64(b.Header.Timestamp()),
+				Count: len(b.Body.Transactions) + len(b2.Body.Transactions),
+			})
+		}
 
 		txs := b.Body.Transactions
 		for _, tx := range txs {
 			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+			if len(newTxs) > 500 {
+				break
+			}
 			newTxs = append(newTxs, txInfos{
 				TxHash:    tx.Hash().String(),
 				BlockHash: b.Header.Hash().String(),
@@ -208,6 +220,9 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		txs = b2.Body.Transactions
 		for _, tx := range txs {
 			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+			if len(newTxs) > 500 {
+				break
+			}
 			newTxs = append(newTxs, txInfos{
 				TxHash:    tx.Hash().String(),
 				BlockHash: b.Header.Hash().String(),
@@ -226,6 +241,12 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
 		if len(e.lastestTransactionList) > 500 {
 			e.lastestTransactionList = e.lastestTransactionList[:500]
+		}
+	}
+	if len(newTxCountInfos) > 0 {
+		e.transactionCountList = append(newTxCountInfos, e.transactionCountList...)
+		if len(e.transactionCountList) > 500 {
+			e.transactionCountList = e.transactionCountList[:500]
 		}
 	}
 
@@ -320,28 +341,6 @@ func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
 		return nil
 	})
 	return
-}
-
-func prependListLimit(ci []*countInfo, count int, time int64, limit int) []*countInfo {
-	ci = append([]*countInfo{&countInfo{
-		Time:  time,
-		Count: count,
-	}}, ci...)
-	if len(ci) >= limit {
-		ci = ci[:limit]
-	}
-	return ci
-}
-
-func appendListLimit(ci []*countInfo, count int, time int64, limit int) []*countInfo {
-	if len(ci) >= limit {
-		ci = ci[len(ci)-limit+1 : len(ci)]
-	}
-	ci = append(ci, &countInfo{
-		Time:  time,
-		Count: count,
-	})
-	return ci
 }
 
 // StartExplorer is start web server
