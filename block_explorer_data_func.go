@@ -8,10 +8,7 @@ import (
 	"github.com/fletaio/core/block"
 )
 
-func (e *BlockExplorer) formulators() []countInfo {
-	return e.formulatorCountList
-}
-func (e *BlockExplorer) transactions() []countInfo {
+func (e *BlockExplorer) transactions() []*countInfo {
 	return e.transactionCountList
 }
 func (e *BlockExplorer) chainInfo() currentChainInfo {

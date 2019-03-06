@@ -14,10 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dgraph-io/badger"
 	"github.com/fletaio/common/util"
+	"github.com/fletaio/core/block"
 	"github.com/fletaio/core/kernel"
 	"github.com/fletaio/framework/template"
-	"github.com/dgraph-io/badger"
 )
 
 var (
@@ -51,8 +52,7 @@ var (
 // BlockExplorer struct
 type BlockExplorer struct {
 	Kernel                 *kernel.Kernel
-	formulatorCountList    []countInfo
-	transactionCountList   []countInfo
+	transactionCountList   []*countInfo
 	CurrentChainInfo       currentChainInfo
 	lastestTransactionList []txInfos
 
@@ -104,8 +104,7 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 
 	e := &BlockExplorer{
 		Kernel:                 Kernel,
-		formulatorCountList:    []countInfo{},
-		transactionCountList:   []countInfo{},
+		transactionCountList:   []*countInfo{},
 		lastestTransactionList: []txInfos{},
 		Template: template.NewTemplate(&template.TemplateConfig{
 			TemplatePath: libPath + "/html/pages/",
@@ -160,11 +159,7 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 	go func(e *BlockExplorer) {
 		for {
 			time.Sleep(time.Second)
-
 			e.updateChainInfoCount()
-
-			e.formulatorCountList = appendListLimit(e.formulatorCountList, e.CurrentChainInfo.Foumulators, 200)
-			e.transactionCountList = appendListLimit(e.transactionCountList, e.CurrentChainInfo.currentTransactions, 200)
 		}
 	}(e)
 
@@ -183,13 +178,20 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	e.CurrentChainInfo.Foumulators = e.Kernel.CandidateCount()
 
 	newTxs := []txInfos{}
-	for i := int(currHeight); i > int(e.CurrentChainInfo.Blocks) && i >= 0; i-- {
+	for i := int(currHeight - currHeight%2); i > int(e.CurrentChainInfo.Blocks) && i >= 0; i -= 2 {
 		height := uint32(i)
 		b, err := e.Kernel.Block(height)
 		if err != nil {
 			continue
 		}
+		height2 := uint32(i - 1)
+		b2, err := e.Kernel.Block(height2)
+		if err != nil {
+			continue
+		}
 		e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
+		e.CurrentChainInfo.currentTransactions += len(b2.Body.Transactions)
+		e.transactionCountList = prependListLimit(e.transactionCountList, len(b.Body.Transactions)+len(b2.Body.Transactions), int64(b.Header.Timestamp()), 200)
 
 		txs := b.Body.Transactions
 		for _, tx := range txs {
@@ -203,19 +205,22 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 			})
 		}
 
-		if err := e.db.Update(func(txn *badger.Txn) error {
-			//start block hash update
-			err = e.updateHashs(txn, height, currHeight)
-			if err != nil {
-				return err
-			}
-			//end block hash update
-			return nil
-		}); err != nil {
-			return err
+		txs = b2.Body.Transactions
+		for _, tx := range txs {
+			name, _ := e.Kernel.Transactor().NameByType(tx.Type())
+			newTxs = append(newTxs, txInfos{
+				TxHash:    tx.Hash().String(),
+				BlockHash: b.Header.Hash().String(),
+				ChainID:   b.Header.ChainCoord.String(),
+				Time:      tx.Timestamp(),
+				TxType:    name,
+			})
 		}
 
+		e.updateBlock(b, height)
+		e.updateBlock(b2, height2)
 	}
+	e.CurrentChainInfo.Blocks = currHeight
 
 	if len(newTxs) > 0 {
 		e.lastestTransactionList = append(newTxs, e.lastestTransactionList...)
@@ -225,7 +230,6 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	}
 
 	e.CurrentChainInfo.Transactions += e.CurrentChainInfo.currentTransactions
-	e.CurrentChainInfo.Blocks = currHeight
 
 	if err := e.db.Update(func(txn *badger.Txn) error {
 		buf := &bytes.Buffer{}
@@ -242,7 +246,22 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 	return nil
 }
 
-func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32, currHeight uint32) error {
+func (e *BlockExplorer) updateBlock(b *block.Block, height uint32) error {
+	if err := e.db.Update(func(txn *badger.Txn) error {
+		//start block hash update
+		err := e.updateHashs(txn, height)
+		if err != nil {
+			return err
+		}
+		//end block hash update
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
 	b, err := e.Kernel.Block(height)
 	if err != nil {
 		return err
@@ -303,16 +322,26 @@ func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
 	return
 }
 
-func appendListLimit(ci []countInfo, count int, limit int) []countInfo {
+func prependListLimit(ci []*countInfo, count int, time int64, limit int) []*countInfo {
+	ci = append([]*countInfo{&countInfo{
+		Time:  time,
+		Count: count,
+	}}, ci...)
+	if len(ci) >= limit {
+		ci = ci[:limit]
+	}
+	return ci
+}
+
+func appendListLimit(ci []*countInfo, count int, time int64, limit int) []*countInfo {
 	if len(ci) >= limit {
 		ci = ci[len(ci)-limit+1 : len(ci)]
 	}
-	ci = append(ci, countInfo{
-		Time:  time.Now().UnixNano(),
+	ci = append(ci, &countInfo{
+		Time:  time,
 		Count: count,
 	})
 	return ci
-
 }
 
 // StartExplorer is start web server
