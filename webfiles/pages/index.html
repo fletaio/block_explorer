@@ -1,4 +1,5 @@
-<script fletaId="headScript">
+{{define "headScript"}}
+<script>
     jQuery(document).ready(function(){
         DashboardTransactionsChart.init()
         CurrentChainInfoAjax.init()
@@ -6,19 +7,20 @@
         LastestTransactionsAjax.init()
     });
 </script>
+{{end}}
 
-<pageTitle>Dashboard</pageTitle>
+{{define "pageTitle"}}Dashboard{{end}}
 
-<FooterIncludeScript>
-    <script src="/js/common.js"></script>
-    <script src="/js/dashboardTopChart.js"></script>
-    <script src="/js/currentChainInfo.js"></script>
-    <script src="/js/transactionTypePerBlockAjax.js"></script>
-    <script src="/js/lastestBlock.js"></script>
-    <script src="/js/lastestTransactions.js"></script>
-</FooterIncludeScript>
+{{define "FooterIncludeScript"}}
+    <script src="/resource/js/common.js"></script>
+    <script src="/resource/js/dashboardTopChart.js"></script>
+    <script src="/resource/js/currentChainInfo.js"></script>
+    <script src="/resource/js/transactionTypePerBlockAjax.js"></script>
+    <script src="/resource/js/lastestBlock.js"></script>
+    <script src="/resource/js/lastestTransactions.js"></script>
+{{end}}
 
-<fletaBody>
+{{define "fletaBody"}}
     <div class="portlet">
         <div class="row row-col-separator">
             <div class="col-xl-4">
@@ -217,5 +219,4 @@
         </div>
     </div>
 
-</fletaBody>
-
+{{end}}

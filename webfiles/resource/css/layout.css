@@ -116,9 +116,9 @@
     background-repeat: no-repeat;
 }
 
-.header .header-head .header-menu .menu_nav .menu_item .menu_link .dashboard{background-image: url(/images/icon-dashboard.png);}
-.header .header-head .header-menu .menu_nav .menu_item .menu_link .blocks{background-image: url(/images/icon-blocks.png);}
-.header .header-head .header-menu .menu_nav .menu_item .menu_link .transactions{background-image: url(/images/icon-transaction.png);}
+.header .header-head .header-menu .menu_nav .menu_item .menu_link .dashboard{background-image: url(/resource/images/icon-dashboard.png);}
+.header .header-head .header-menu .menu_nav .menu_item .menu_link .blocks{background-image: url(/resource/images/icon-blocks.png);}
+.header .header-head .header-menu .menu_nav .menu_item .menu_link .transactions{background-image: url(/resource/images/icon-transaction.png);}
 
 .desktop{
     transition: width 0.2s ease;
@@ -182,9 +182,10 @@
     line-height: 0;
     background-size: contain;
     background-repeat: no-repeat;
-    background-image: url(/images/FLETA-ICON-Blue.png);
+    background-image: url(/resource/images/FLETA-ICON-Blue.png);
     background-position: 0 1px;
 }
+
 .desktop .aside-left .aside-menu .menu_nav .menu_item.active .menu_link .menu_link-title .menu_link-wrap .text{
     display: table-cell;
     height: 100%;

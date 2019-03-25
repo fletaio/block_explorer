@@ -1,4 +1,5 @@
-<script fletaId="headScript">
+{{define "headScript"}}
+<script>
     function getPage(start) {
         (function (start) {
             var startIndex = start+1
@@ -48,19 +49,21 @@
             $dataBody.append(t)
         }
     }
-    var v = {{txsData}};
+    var v = {{index . "txsData"}};
 
     $(function () {
         var $dataBody = $("#dataBody");
         putData ($dataBody, v);
-        startHeight = "0{{txLength}}"-1;
+        startHeight = "0{{index . "txLength"}}"-1;
         pagination(0, startHeight);
     })
 </script>
+{{end}}
 
-<pageTitle>Transactions</pageTitle>
 
-<fletaBody>
+{{define "pageTitle"}}Transactions{{end}}
+
+{{define "fletaBody"}}
     <div class="row">
         <div class="col-xl-12">
     
@@ -100,7 +103,7 @@
                             </tr>
                         </tbody>
                     </table>
-                    {{pagination}}
+                    {{template "pagination" .}}
                     <!--end: Datatable -->
                 </div>
             </div>
@@ -111,11 +114,8 @@
     </div>
     
 <!--End::Section-->
-</fletaBody>
+{{end}}
 
-
-<FooterIncludeScript>
-    <script src="/js/common.js"></script>
-</FooterIncludeScript>
-    
-        
+{{define "FooterIncludeScript"}}
+<script src="/resource/js/common.js"></script>
+{{end}}

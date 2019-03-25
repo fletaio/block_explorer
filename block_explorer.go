@@ -2,10 +2,8 @@ package blockexplorer
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +16,7 @@ import (
 	"github.com/fletaio/common/util"
 	"github.com/fletaio/core/block"
 	"github.com/fletaio/core/kernel"
-	"github.com/fletaio/framework/template"
+	"github.com/labstack/echo"
 )
 
 var (
@@ -56,8 +54,10 @@ type BlockExplorer struct {
 	CurrentChainInfo       currentChainInfo
 	lastestTransactionList []txInfos
 
-	db       *badger.DB
-	Template *template.Template
+	db *badger.DB
+
+	e          *echo.Echo
+	webChecker echo.MiddlewareFunc
 }
 
 type countInfo struct {
@@ -106,12 +106,9 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 		Kernel:                 Kernel,
 		transactionCountList:   []*countInfo{},
 		lastestTransactionList: []txInfos{},
-		Template: template.NewTemplate(&template.TemplateConfig{
-			TemplatePath: libPath + "/html/pages/",
-			LayoutPath:   libPath + "/html/layout/",
-		}),
 		db: db,
 	}
+	e.initURL()
 
 	if err := e.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(blockChainInfoBytes)
@@ -343,78 +340,105 @@ func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
 	return
 }
 
-// StartExplorer is start web server
-func (e *BlockExplorer) StartExplorer(port int) {
+func (e *BlockExplorer) initURL() {
+	e.e = echo.New()
+	web := NewWebServer(e.e, "./webfiles")
+	e.e.Renderer = web
 
-	e.Template.AddController("", NewExplorerController(e.db, e))
+	ec := NewExplorerController(e.db, e)
 
-	http.HandleFunc("/data/", e.dataHandler)
-	http.HandleFunc("/", e.pageHandler)
+	fs := http.FileServer(Assets)
+	e.e.GET("/resource/*", echo.WrapHandler(fs))
 
-	panic(http.ListenAndServe(":"+strconv.Itoa(port), nil))
-}
-
-//AddHandleFunc TODO
-func (e *BlockExplorer) AddHandleFunc(perfix string, handle func(w http.ResponseWriter, r *http.Request)) {
-	http.HandleFunc(perfix, handle)
-}
-
-func (e *BlockExplorer) printJSON(v interface{}, w http.ResponseWriter) {
-	b, err := json.Marshal(&v)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	w.Write(b)
-}
-
-// Handle HTTP request to either static file server or page server
-func (e *BlockExplorer) pageHandler(w http.ResponseWriter, r *http.Request) {
-	//remove first "/" character
-	urlPath := r.URL.Path[1:]
-
-	//if the path is include a dot direct to static file server
-	if strings.Contains(urlPath, ".") {
-		// define your static file directory
-		staticFilePath := libPath + "/html/resource/"
-		//other wise, let read a file path and display to client
-		http.ServeFile(w, r, staticFilePath+urlPath)
-	} else {
-		data, err := e.Template.Route(r, urlPath)
-		// data, err := e.routePath(r, urlPath)
-		if err != nil {
-			handleErrorCode(500, "Unable to retrieve file", w)
-		} else {
-			w.Write(data)
+	e.webChecker = func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) (err error) {
+			web.CheckWatch()
+			return next(c)
 		}
 	}
+
+	e.e.Any("/data/:order", e.dataHandler)
+	// http.HandleFunc("/data/", e.dataHandler)
+	e.e.GET("/", func(c echo.Context) error {
+		args := make(map[string]interface{})
+		err := c.Render(http.StatusOK, "index.html", args)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}, e.webChecker)
+	e.e.GET("/blocks", func(c echo.Context) error {
+		args, err := ec.Blocks(c.Request())
+		if err != nil {
+			log.Println(err)
+		}
+		err = c.Render(http.StatusOK, "blocks.html", args)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}, e.webChecker)
+	e.e.GET("/blockDetail", func(c echo.Context) error {
+		args, err := ec.BlockDetail(c.Request())
+		if err != nil {
+			log.Println(err)
+		}
+		err = c.Render(http.StatusOK, "blockDetail.html", args)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}, e.webChecker)
+	e.e.GET("/transactions", func(c echo.Context) error {
+		args, err := ec.Transactions(c.Request())
+		if err != nil {
+			log.Println(err)
+		}
+		err = c.Render(http.StatusOK, "transactions.html", args)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}, e.webChecker)
+	e.e.GET("/transactionDetail", func(c echo.Context) error {
+		args, err := ec.TransactionDetail(c.Request())
+		if err != nil {
+			log.Println(err)
+		}
+		err = c.Render(http.StatusOK, "transactionDetail.html", args)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}, e.webChecker)
+
 }
 
-// Generate error page
-func handleErrorCode(errorCode int, description string, w http.ResponseWriter) {
-	w.WriteHeader(errorCode)                    // set HTTP status code (example 404, 500)
-	w.Header().Set("Content-Type", "text/html") // clarify return type (MIME)
-
-	data, _ := ioutil.ReadFile(libPath + "/html/errors/error-1.html")
-
-	w.Write(data)
+// StartExplorer is start web server
+func (e *BlockExplorer) StartExplorer(port int) {
+	e.e.Start(":" + strconv.Itoa(port))
 }
 
-func (e *BlockExplorer) dataHandler(w http.ResponseWriter, r *http.Request) {
-	order := r.URL.Path[len("/data/"):]
+// func (e *BlockExplorer) dataHandler(w http.ResponseWriter, r *http.Request) {
+func (e *BlockExplorer) dataHandler(c echo.Context) error {
+	order := c.Param("order")
+	var result interface{}
 
 	switch order {
 	case "transactions.data":
-		e.printJSON(e.transactions(), w)
+		result = e.transactions()
 	case "currentChainInfo.data":
-		e.printJSON(e.CurrentChainInfo, w)
+		result = e.CurrentChainInfo
 	case "lastestBlocks.data":
-		e.printJSON(e.lastestBlocks(), w)
+		result = e.lastestBlocks()
 	case "lastestTransactions.data":
-		e.printJSON(e.lastestTransactions(), w)
+		result = e.lastestTransactions()
 	case "paginationBlocks.data":
-		e.printJSON(e.paginationBlocks(r), w)
+		startStr := c.QueryParam("start")
+		result = e.paginationBlocks(startStr)
 	case "paginationTxs.data":
-		e.printJSON(e.paginationTxs(r), w)
+		startStr := c.QueryParam("start")
+		result = e.paginationTxs(startStr)
 	}
+	return c.JSON(http.StatusOK, result)
 }

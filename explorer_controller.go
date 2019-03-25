@@ -8,9 +8,9 @@ import (
 
 	"github.com/fletaio/common/hash"
 
+	"github.com/dgraph-io/badger"
 	"github.com/fletaio/common/util"
 	"github.com/fletaio/core/data"
-	"github.com/dgraph-io/badger"
 )
 
 type ExplorerController struct {
@@ -25,22 +25,22 @@ func NewExplorerController(db *badger.DB, block *BlockExplorer) *ExplorerControl
 	}
 }
 
-func (e *ExplorerController) Blocks(r *http.Request) (map[string][]byte, error) {
+func (e *ExplorerController) Blocks(r *http.Request) (map[string]string, error) {
 	data := e.block.blocks(0, e.block.Kernel.Provider().Height())
 	j, _ := json.Marshal(data)
-	return map[string][]byte{
-		"blockData": j,
+	return map[string]string{
+		"blockData": string(j),
 	}, nil
 }
-func (e *ExplorerController) Transactions(r *http.Request) (map[string][]byte, error) {
+func (e *ExplorerController) Transactions(r *http.Request) (map[string]string, error) {
 	data := e.block.txs(0, 10)
 	j, _ := json.Marshal(data)
-	return map[string][]byte{
-		"txsData":  j,
-		"txLength": []byte(strconv.Itoa(e.block.LastestTransactionLen())),
+	return map[string]string{
+		"txsData":  string(j),
+		"txLength": strconv.Itoa(e.block.LastestTransactionLen()),
 	}, nil
 }
-func (e *ExplorerController) BlockDetail(r *http.Request) (map[string][]byte, error) {
+func (e *ExplorerController) BlockDetail(r *http.Request) (map[string]string, error) {
 	param := r.URL.Query()
 	// hash := param.Get("hash")
 	heightStr := param.Get("height")
@@ -85,7 +85,7 @@ func (e *ExplorerController) BlockDetail(r *http.Request) (map[string][]byte, er
 	return m, nil
 }
 
-func (e *ExplorerController) TransactionDetail(r *http.Request) (map[string][]byte, error) {
+func (e *ExplorerController) TransactionDetail(r *http.Request) (map[string]string, error) {
 	param := r.URL.Query()
 	hashStr := param.Get("hash")
 	h, err := hash.ParseHex(hashStr)
@@ -120,7 +120,7 @@ func (e *ExplorerController) TransactionDetail(r *http.Request) (map[string][]by
 
 }
 
-func (e *BlockExplorer) txDetailMap(tran *data.Transactor, height uint32, txIndex uint32) (map[string][]byte, error) {
+func (e *BlockExplorer) txDetailMap(tran *data.Transactor, height uint32, txIndex uint32) (map[string]string, error) {
 	m := map[string]interface{}{}
 
 	b, err := e.Kernel.Block(height)
@@ -159,10 +159,10 @@ func (e *BlockExplorer) txDetailMap(tran *data.Transactor, height uint32, txInde
 	}
 	bs = append(bs[:len(bs)-1], byte(','))
 	bs = append(bs, txbs[1:]...)
-	return map[string][]byte{"TxInfo": bs}, nil
+	return map[string]string{"TxInfo": string(bs)}, nil
 }
 
-func (e *BlockExplorer) blockDetailMap(height uint32) (map[string][]byte, error) {
+func (e *BlockExplorer) blockDetailMap(height uint32) (map[string]string, error) {
 	cd, err := e.Kernel.Provider().Data(height)
 	if err != nil {
 		return nil, err
@@ -191,5 +191,5 @@ func (e *BlockExplorer) blockDetailMap(height uint32) (map[string][]byte, error)
 	}
 	m["Transactions"] = txs
 	bs, err := json.Marshal(&m)
-	return map[string][]byte{"TxInfo": bs}, nil
+	return map[string]string{"TxInfo": string(bs)}, nil
 }

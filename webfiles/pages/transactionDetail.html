@@ -1,6 +1,7 @@
-<script fletaId="headScript">
+{{define "headScript"}}
+<script>
     $(function () {
-        var str = '{{TxInfo}}';
+        var str = '{{index . "TxInfo"}}';
         var v = JSON.parse(str)
 
         var $dataBody = $("#dataBody")
@@ -11,10 +12,8 @@
                     if (typeof v[k] === "object") {
                         putData($dataBody, v[k], (void 0 == prefix?"":prefix+" ")+k)
                     } else {
-                        if (k == "HashPrevBlock") {
+                        if (k == "Block Hash") {
                             var tr = '<tr class="row-'+((i++%2==0)?'even':'odd1')+'"><th>'+(void 0 == prefix?"":prefix+" ")+k+'</th><td><a href="/blockDetail?hash='+v[k]+'">'+v[k]+'</a></td></tr>'
-                        } else if (prefix == "Transactions") {
-                            var tr = '<tr class="row-'+((i++%2==0)?'even':'odd1')+'"><th>'+(void 0 == prefix?"":prefix+" ")+k+'</th><td><a href="/transactionDetail?hash='+v[k]+'">'+v[k]+'</a></td></tr>'
                         } else {
                             var tr = '<tr class="row-'+((i++%2==0)?'even':'odd1')+'"><th>'+(void 0 == prefix?"":prefix+" ")+k+'</th><td>'+v[k]+'</td></tr>'
                         }
@@ -27,14 +26,15 @@
         console.log(v)
     })
 </script>
+{{end}}
 
-<pageTitle>Block Dtails</pageTitle>
+{{define "pageTitle"}}Transaction Detail{{end}}
 
-<FooterIncludeScript>
-    <script src="/js/common.js"></script>
-</FooterIncludeScript>
+{{define "FooterIncludeScript"}}
+<script src="/resource/js/common.js"></script>
+{{end}}
 
-<fletaBody>
+{{define "fletaBody"}}
     <div class="row">
         <div class="col-xl-12">
             <div class="portlet">
@@ -45,8 +45,7 @@
                                 <colgroup>
                                     <col width="20%">
                                 </colgroup>
-                                <tbody id="dataBody">
-                                </tbody>
+                                <tbody id="dataBody"></tbody>
                             </table>
                         </div>
                     </div>
@@ -55,6 +54,4 @@
             </div>
         </div>
     </div>
-
-</fletaBody>
-
+{{end}}

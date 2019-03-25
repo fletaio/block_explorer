@@ -1,4 +1,5 @@
-<script fletaId="headScript">
+{{define "headScript"}}
+<script >
     function getPage(start) {
         $.ajax({
             url : "/data/paginationBlocks.data",
@@ -44,7 +45,7 @@
             $dataBody.append(t)
         }
     }
-    var v = {{blockData}};
+    var v = {{index . "blockData"}};
 
     $(function () {
         var $dataBody = $("#dataBody");
@@ -53,10 +54,12 @@
         pagination(startHeight, startHeight, -1);
     })
 </script>
+{{end}}
 
-<pageTitle>Blocks</pageTitle>
+{{define "pageTitle"}}Blocks{{end}}
 
-<fletaBody>
+
+{{define "fletaBody"}}
 <div class="row">
     <div class="col-xl-12">
         <!--begin:: Widgets/Top Products-->
@@ -89,7 +92,7 @@
                     </tr>
                     </tbody>
                 </table>
-                {{pagination}}
+                {{template "pagination" .}}
                 <!--end: Datatable -->
             </div>
         </div>
@@ -100,10 +103,9 @@
 </div>
 
 <!--End::Section-->
-</fletaBody>
+{{end}}
 
 
-<FooterIncludeScript>
-    <script src="/js/common.js"></script>
-</FooterIncludeScript>
-
+{{define "FooterIncludeScript"}}
+    <script src="/resource/js/common.js"></script>
+{{end}}

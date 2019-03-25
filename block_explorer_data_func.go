@@ -1,7 +1,6 @@
 package blockexplorer
 
 import (
-	"net/http"
 	"strconv"
 	"time"
 
@@ -141,9 +140,7 @@ func (e *BlockExplorer) blocks(start int, currHeight uint32) []blockInfos {
 	return aaData
 }
 
-func (e *BlockExplorer) paginationBlocks(r *http.Request) (result blockInfosCase) {
-	param := r.URL.Query()
-	startStr := param.Get("start")
+func (e *BlockExplorer) paginationBlocks(startStr string) (result blockInfosCase) {
 	start, err := strconv.Atoi(startStr)
 	if err != nil {
 		return
@@ -175,10 +172,7 @@ func (e *BlockExplorer) txs(start int, length int) []txInfos {
 	return e.lastestTransactionList[start:max]
 }
 
-func (e *BlockExplorer) paginationTxs(r *http.Request) (result txInfosCase) {
-	param := r.URL.Query()
-	startStr := param.Get("start")
-
+func (e *BlockExplorer) paginationTxs(startStr string) (result txInfosCase) {
 	start, err := strconv.Atoi(startStr)
 	if err != nil {
 		return
