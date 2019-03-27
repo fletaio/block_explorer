@@ -56,11 +56,12 @@ type BlockExplorer struct {
 
 	db *badger.DB
 
-	initURLFlag  bool
-	resourcePath string
-	e            *echo.Echo
-	webChecker   echo.MiddlewareFunc
-	assets       *fileAsset
+	initURLFlag      bool
+	resourcePath     string
+	e                *echo.Echo
+	webChecker       echo.MiddlewareFunc
+	assets           *fileAsset
+	dataHandlerPacks []DataHandlerPack
 }
 
 type countInfo struct {
@@ -110,9 +111,10 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel, resourcePath string)
 		Kernel:                 Kernel,
 		transactionCountList:   []*countInfo{},
 		lastestTransactionList: []txInfos{},
-		db:           db,
-		resourcePath: resourcePath,
-		assets:       NewFileAsset(Assets, resourcePath),
+		db:               db,
+		resourcePath:     resourcePath,
+		assets:           NewFileAsset(Assets, resourcePath),
+		dataHandlerPacks: []DataHandlerPack{},
 	}
 
 	if err := e.db.View(func(txn *badger.Txn) error {
@@ -368,7 +370,6 @@ func (e *BlockExplorer) InitURL() {
 	}
 
 	e.e.Any("/data/:order", e.dataHandler)
-	// http.HandleFunc("/data/", e.dataHandler)
 	e.e.GET("/", func(c echo.Context) error {
 		args := make(map[string]interface{})
 		err := c.Render(http.StatusOK, "index.html", args)
@@ -458,7 +459,14 @@ func (e *BlockExplorer) StartExplorer(port int) {
 	e.e.Start(":" + strconv.Itoa(port))
 }
 
-// func (e *BlockExplorer) dataHandler(w http.ResponseWriter, r *http.Request) {
+func (e *BlockExplorer) AddDataHandler(d DataHandlerPack) {
+	e.dataHandlerPacks = append(e.dataHandlerPacks, d)
+}
+
+type DataHandlerPack interface {
+	DataHandler(c echo.Context) (interface{}, error)
+}
+
 func (e *BlockExplorer) dataHandler(c echo.Context) error {
 	order := c.Param("order")
 	var result interface{}
@@ -478,6 +486,14 @@ func (e *BlockExplorer) dataHandler(c echo.Context) error {
 	case "paginationTxs.data":
 		startStr := c.QueryParam("start")
 		result = e.paginationTxs(startStr)
+	default:
+		for _, v := range e.dataHandlerPacks {
+			var err error
+			result, err = v.DataHandler(c)
+			if err == nil {
+				break
+			}
+		}
 	}
 	return c.JSON(http.StatusOK, result)
 }

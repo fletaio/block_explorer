@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,27 +94,48 @@ func (web *WebServer) UpdateRender() error {
 	if !li.IsDir() {
 		log.Fatal("layout is not folder")
 	}
-	layoutData := web.assetToData("/layout/layout.html")
-	baseData := web.assetToData("/layout/base.html")
 
-	tds := [][]byte{layoutData, baseData}
-	f, err := layout.Readdir(1)
-	for err == nil {
-		if f[0].IsDir() || f[0].Name() == "layout.html" || f[0].Name() == "base.html" {
-			f, err = layout.Readdir(1)
-			continue
-		}
-		tds = append(tds, web.assetToData("layout/"+f[0].Name()))
-		f, err = layout.Readdir(1)
-	}
-	// tds = append(tds, )
+	templateMap := map[string][][]byte{}
+	tds := web.loadTemplates("", layout, templateMap)
+	templateMap[""] = tds
 
-	web.updateRender("", "/pages", tds...)
+	web.updateRender("", "/pages", templateMap)
 
 	return nil
 }
 
-func (web *WebServer) updateRender(prefix, path string, templateDatas ...[]byte) error {
+func (web *WebServer) loadTemplates(prefix string, layout http.File, templateMap map[string][][]byte) [][]byte {
+	layoutData := web.assetToData("/layout/" + prefix + "layout.html")
+	baseData := web.assetToData("/layout/" + prefix + "base.html")
+
+	tds := [][]byte{layoutData, baseData}
+	f, err := layout.Readdir(1)
+	for err == nil {
+		if f[0].IsDir() {
+			pf := prefix + f[0].Name() + "/"
+			l, err := web.assets.Open("layout/" + pf)
+			if err == nil {
+				tds := web.loadTemplates(pf, l, templateMap)
+				templateMap[pf] = tds
+			} else {
+				log.Println(err)
+			}
+			f, err = layout.Readdir(1)
+			continue
+		}
+		if f[0].Name() == "layout.html" || f[0].Name() == "base.html" {
+			f, err = layout.Readdir(1)
+			continue
+		}
+		tds = append(tds, web.assetToData("layout/"+prefix+f[0].Name()))
+		f, err = layout.Readdir(1)
+	}
+
+	return tds
+
+}
+
+func (web *WebServer) updateRender(prefix, path string, templateMap map[string][][]byte) error {
 	d, err := web.assets.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -123,7 +145,7 @@ func (web *WebServer) updateRender(prefix, path string, templateDatas ...[]byte)
 	for err == nil {
 		log.Println(prefix + fi[0].Name())
 		if fi[0].IsDir() {
-			web.updateRender(prefix+fi[0].Name()+"/", "/pages/"+fi[0].Name(), templateDatas...)
+			web.updateRender(prefix+fi[0].Name()+"/", "/pages/"+fi[0].Name(), templateMap)
 		} else {
 			data := web.assetToData(path + "/" + fi[0].Name())
 
@@ -132,7 +154,12 @@ func (web *WebServer) updateRender(prefix, path string, templateDatas ...[]byte)
 
 			t := template.New(fi[0].Name())
 			template.Must(t.Parse(string(data)))
-			for _, td := range templateDatas {
+			var tds [][]byte
+			var has bool
+			if tds, has = templateMap[prefix]; !has {
+				tds = templateMap[""]
+			}
+			for _, td := range tds {
 				template.Must(t.Parse(string(td)))
 			}
 			web.templates[prefix+fi[0].Name()] = t
