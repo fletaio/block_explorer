@@ -56,8 +56,11 @@ type BlockExplorer struct {
 
 	db *badger.DB
 
-	e          *echo.Echo
-	webChecker echo.MiddlewareFunc
+	initURLFlag  bool
+	resourcePath string
+	e            *echo.Echo
+	webChecker   echo.MiddlewareFunc
+	assets       *fileAsset
 }
 
 type countInfo struct {
@@ -66,13 +69,14 @@ type countInfo struct {
 }
 
 //NewBlockExplorer TODO
-func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, error) {
+func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel, resourcePath string) (*BlockExplorer, error) {
 	os.Remove(dbPath) //TODO REMOVE THIS CODE
 	opts := badger.DefaultOptions
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
 	opts.Truncate = true
 	opts.SyncWrites = true
+	opts.ValueLogFileSize = 1 << 24
 	lockfilePath := filepath.Join(opts.Dir, "LOCK")
 	os.MkdirAll(dbPath, os.ModeDir)
 
@@ -106,9 +110,10 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 		Kernel:                 Kernel,
 		transactionCountList:   []*countInfo{},
 		lastestTransactionList: []txInfos{},
-		db: db,
+		db:           db,
+		resourcePath: resourcePath,
+		assets:       NewFileAsset(Assets, resourcePath),
 	}
-	e.initURL()
 
 	if err := e.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(blockChainInfoBytes)
@@ -161,6 +166,10 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel) (*BlockExplorer, err
 	}(e)
 
 	return e, nil
+}
+
+func (e *BlockExplorer) AddAssets(assets http.FileSystem) {
+	e.assets.AddAssets(assets)
 }
 
 var blockChainInfoBytes = []byte("blockChainInfo")
@@ -340,14 +349,15 @@ func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
 	return
 }
 
-func (e *BlockExplorer) initURL() {
+func (e *BlockExplorer) InitURL() {
+	e.initURLFlag = true
 	e.e = echo.New()
-	web := NewWebServer(e.e, "./webfiles")
+	web := NewWebServer(e.e, e.assets, e.resourcePath)
 	e.e.Renderer = web
 
 	ec := NewExplorerController(e.db, e)
 
-	fs := http.FileServer(Assets)
+	fs := http.FileServer(e.assets)
 	e.e.GET("/resource/*", echo.WrapHandler(fs))
 
 	e.webChecker = func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -414,8 +424,37 @@ func (e *BlockExplorer) initURL() {
 
 }
 
+// AddURL add homepage url
+func (e *BlockExplorer) AddURL(url string, method string, handler func(c echo.Context) error) {
+	switch method {
+	case "CONNECT":
+		e.e.CONNECT(url, handler, e.webChecker)
+	case "DELETE":
+		e.e.DELETE(url, handler, e.webChecker)
+	case "GET":
+		e.e.GET(url, handler, e.webChecker)
+	case "HEAD":
+		e.e.HEAD(url, handler, e.webChecker)
+	case "OPTIONS":
+		e.e.OPTIONS(url, handler, e.webChecker)
+	case "PATCH":
+		e.e.PATCH(url, handler, e.webChecker)
+	case "POST":
+		e.e.POST(url, handler, e.webChecker)
+	case "PUT":
+		e.e.PUT(url, handler, e.webChecker)
+	case "TRACE":
+		e.e.TRACE(url, handler, e.webChecker)
+	case "ANY":
+		e.e.Any(url, handler, e.webChecker)
+	}
+}
+
 // StartExplorer is start web server
 func (e *BlockExplorer) StartExplorer(port int) {
+	if e.initURLFlag != true {
+		e.InitURL()
+	}
 	e.e.Start(":" + strconv.Itoa(port))
 }
 

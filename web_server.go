@@ -20,14 +20,16 @@ type WebServer struct {
 	templates       map[string]*template.Template
 	echo            *echo.Echo
 	isRequireReload bool
+	assets          *fileAsset
 	sync.Mutex
 }
 
-func NewWebServer(echo *echo.Echo, path string) *WebServer {
+func NewWebServer(echo *echo.Echo, assets *fileAsset, path string) *WebServer {
 	web := &WebServer{
 		echo:      echo,
 		path:      path,
 		templates: map[string]*template.Template{},
+		assets:    assets,
 	}
 
 	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
@@ -63,53 +65,84 @@ func (web *WebServer) CheckWatch() {
 	}
 }
 
+func (web *WebServer) assetToData(path string) []byte {
+	f, err := web.assets.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bs, err := ioutil.ReadAll(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return bs
+}
+
 func (web *WebServer) UpdateRender() error {
 	web.templates = map[string]*template.Template{}
 
-	layout, err := Assets.Open("/layout/layout.html")
+	layout, err := web.assets.Open("layout")
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
-	layoutData, err := ioutil.ReadAll(layout)
+	li, err := layout.Stat()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
+	if !li.IsDir() {
+		log.Fatal("layout is not folder")
+	}
+	layoutData := web.assetToData("/layout/layout.html")
+	baseData := web.assetToData("/layout/base.html")
 
-	base, err := Assets.Open("/layout/base.html")
-	if err != nil {
-		return err
+	tds := [][]byte{layoutData, baseData}
+	f, err := layout.Readdir(1)
+	for err == nil {
+		if f[0].IsDir() || f[0].Name() == "layout.html" || f[0].Name() == "base.html" {
+			f, err = layout.Readdir(1)
+			continue
+		}
+		tds = append(tds, web.assetToData("layout/"+f[0].Name()))
+		f, err = layout.Readdir(1)
 	}
-	baseData, err := ioutil.ReadAll(base)
-	if err != nil {
-		return err
-	}
+	// tds = append(tds, )
 
-	d, err := Assets.Open("/pages")
+	web.updateRender("", "/pages", tds...)
+
+	return nil
+}
+
+func (web *WebServer) updateRender(prefix, path string, templateDatas ...[]byte) error {
+	d, err := web.assets.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 	var fi []os.FileInfo
 	fi, err = d.Readdir(1)
 	for err == nil {
-		f, err2 := Assets.Open("/pages/" + fi[0].Name())
-		if err2 != nil {
-			return err2
-		}
-		data, err2 := ioutil.ReadAll(f)
-		if err2 != nil {
-			return err2
-		}
+		log.Println(prefix + fi[0].Name())
+		if fi[0].IsDir() {
+			web.updateRender(prefix+fi[0].Name()+"/", "/pages/"+fi[0].Name(), templateDatas...)
+		} else {
+			data := web.assetToData(path + "/" + fi[0].Name())
 
-		t := template.New(fi[0].Name())
-		template.Must(t.Parse(string(data)))
-		template.Must(t.Parse(string(layoutData)))
-		template.Must(t.Parse(string(baseData)))
-		web.templates[fi[0].Name()] = t
+			str := string(data)
+			log.Println(str)
+
+			t := template.New(fi[0].Name())
+			template.Must(t.Parse(string(data)))
+			for _, td := range templateDatas {
+				template.Must(t.Parse(string(td)))
+			}
+			web.templates[prefix+fi[0].Name()] = t
+		}
 
 		fi, err = d.Readdir(1)
 	}
 
 	return nil
+
 }
 
 func (web *WebServer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {

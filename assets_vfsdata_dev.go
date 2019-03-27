@@ -1,4 +1,4 @@
-// +build dev
+// +build !dev
 
 package blockexplorer
 
@@ -13,12 +13,10 @@ import (
 // Assets contains project assets.
 var Assets http.FileSystem
 
-// var Assets http.FileSystem = http.Dir("./webfiles")
-
 func init() {
 	var pwd string
 	{
-		pc := make([]uintptr, 10) // at least 1 entry needed
+		pc := make([]uintptr, 10)
 		runtime.Callers(1, pc)
 		f := runtime.FuncForPC(pc[0])
 		pwd, _ = f.FileLine(pc[0])
