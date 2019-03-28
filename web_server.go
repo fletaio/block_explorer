@@ -143,14 +143,10 @@ func (web *WebServer) updateRender(prefix, path string, templateMap map[string][
 	var fi []os.FileInfo
 	fi, err = d.Readdir(1)
 	for err == nil {
-		log.Println(prefix + fi[0].Name())
 		if fi[0].IsDir() {
 			web.updateRender(prefix+fi[0].Name()+"/", "/pages/"+fi[0].Name(), templateMap)
 		} else {
 			data := web.assetToData(path + "/" + fi[0].Name())
-
-			str := string(data)
-			log.Println(str)
 
 			t := template.New(fi[0].Name())
 			template.Must(t.Parse(string(data)))
