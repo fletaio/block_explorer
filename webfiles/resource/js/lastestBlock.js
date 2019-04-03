@@ -5,7 +5,7 @@ var LastestBlocksAjax={
     <td><a href="/blockDetail?hash={Block Hash}" title="{Block Hash}"target="_BLANK">{Block Hash}</a></td>
     <td class="{hidelv2}"><span title="{Time}">{Shot Time}</span></td>
     <td class="{hidelv1}"><span class="badge badge-{Status}">{Status}</span></td>
-    <td class="{hidelv2}">0</td>
+    <td class="{hidelv2}">{Txs}</td>
 </tr>
     `,
     observersTemplate: `

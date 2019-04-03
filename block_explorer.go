@@ -71,7 +71,6 @@ type countInfo struct {
 
 //NewBlockExplorer TODO
 func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel, resourcePath string) (*BlockExplorer, error) {
-	os.Remove(dbPath) //TODO REMOVE THIS CODE
 	opts := badger.DefaultOptions
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
