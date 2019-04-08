@@ -119,6 +119,12 @@ func main() {
 	cm.RemoveAll()
 	cm.Add("kernel.Kernel", kn)
 
+	be, err := blockexplorer.NewBlockExplorer("./explorer_data", kn, "./webfiles")
+	if err != nil {
+		panic(err)
+	}
+	go be.StartExplorer(cfg.ExplorerPort)
+
 	ndcfg := &node.Config{
 		ChainCoord: GenCoord,
 		SeedNodes:  cfg.SeedNodes,
@@ -220,12 +226,6 @@ func main() {
 			}
 		}
 	}()
-
-	be, err := blockexplorer.NewBlockExplorer("./explorer_data", kn, "./webfiles")
-	if err != nil {
-		panic(err)
-	}
-	go be.StartExplorer(cfg.ExplorerPort)
 
 	cm.Wait()
 }
