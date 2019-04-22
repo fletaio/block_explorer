@@ -3,6 +3,7 @@ package blockexplorer
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -62,6 +63,8 @@ type BlockExplorer struct {
 	webChecker       echo.MiddlewareFunc
 	assets           *fileAsset
 	dataHandlerPacks []DataHandlerPack
+
+	MaximumTps int
 }
 
 type countInfo struct {
@@ -131,6 +134,20 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel, resourcePath string)
 			e.CurrentChainInfo.ReadFrom(buf)
 		}
 
+		item, err = txn.Get(MaximumTpsBytes)
+		if err != nil {
+			if err != badger.ErrKeyNotFound {
+				return err
+			}
+		} else {
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			tps := util.BytesToUint32(value)
+			e.MaximumTps = int(tps)
+		}
+
 		return nil
 	}); err != nil {
 		return nil, ErrDbNotClear
@@ -169,12 +186,15 @@ func NewBlockExplorer(dbPath string, Kernel *kernel.Kernel, resourcePath string)
 	return e, nil
 }
 
+// AddAssets is add assets to obj
 func (e *BlockExplorer) AddAssets(assets http.FileSystem) {
 	e.assets.AddAssets(assets)
 }
 
 var blockChainInfoBytes = []byte("blockChainInfo")
+var MaximumTpsBytes = []byte("MaximumTps")
 
+// LastestTransactionLen is returned length of lastest txs
 func (e *BlockExplorer) LastestTransactionLen() int {
 	return len(e.lastestTransactionList)
 }
@@ -202,10 +222,15 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 		e.CurrentChainInfo.currentTransactions += len(b.Body.Transactions)
 		e.CurrentChainInfo.currentTransactions += len(b2.Body.Transactions)
 
+		tps := len(b.Body.Transactions) + len(b2.Body.Transactions)
+		if e.MaximumTps < tps {
+			e.MaximumTps = tps
+		}
+
 		if len(newTxCountInfos) < 200 {
 			newTxCountInfos = append(newTxCountInfos, &countInfo{
 				Time:  int64(b.Header.Timestamp()),
-				Count: len(b.Body.Transactions) + len(b2.Body.Transactions),
+				Count: tps,
 			})
 		}
 
@@ -250,6 +275,7 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 			e.lastestTransactionList = e.lastestTransactionList[:500]
 		}
 	}
+
 	if len(newTxCountInfos) > 0 {
 		e.transactionCountList = append(newTxCountInfos, e.transactionCountList...)
 		if len(e.transactionCountList) > 500 {
@@ -266,6 +292,7 @@ func (e *BlockExplorer) updateChainInfoCount() error {
 			return err
 		}
 		txn.Set(blockChainInfoBytes, buf.Bytes())
+		txn.Set(MaximumTpsBytes, util.Uint32ToBytes(uint32(e.MaximumTps)))
 		return nil
 	}); err != nil {
 		return err
@@ -328,6 +355,7 @@ func (e *BlockExplorer) updateHashs(txn *badger.Txn, height uint32) error {
 	return nil
 }
 
+// GetBlockCount return block height
 func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
 	formulatorKey := []byte("formulator" + formulatorAddr)
 	e.db.View(func(txn *badger.Txn) error {
@@ -350,6 +378,7 @@ func (e *BlockExplorer) GetBlockCount(formulatorAddr string) (height uint32) {
 	return
 }
 
+// InitURL is initialization urls
 func (e *BlockExplorer) InitURL() {
 	e.initURLFlag = true
 	e.e = echo.New()
@@ -370,7 +399,9 @@ func (e *BlockExplorer) InitURL() {
 
 	e.e.Any("/data/:order", e.dataHandler)
 	e.e.GET("/", func(c echo.Context) error {
-		args := make(map[string]interface{})
+		args := map[string]string{
+			"MaximumTps": fmt.Sprintln(e.MaximumTps),
+		}
 		err := c.Render(http.StatusOK, "index.html", args)
 		if err != nil {
 			log.Println(err)
@@ -458,10 +489,12 @@ func (e *BlockExplorer) StartExplorer(port int) {
 	e.e.Start(":" + strconv.Itoa(port))
 }
 
+// AddDataHandler add data handler
 func (e *BlockExplorer) AddDataHandler(d DataHandlerPack) {
 	e.dataHandlerPacks = append(e.dataHandlerPacks, d)
 }
 
+// DataHandlerPack interface of handler
 type DataHandlerPack interface {
 	DataHandler(c echo.Context) (interface{}, error)
 }

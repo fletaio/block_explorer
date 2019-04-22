@@ -3,8 +3,6 @@
 package blockexplorer
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 	"runtime"
 	"strings"
@@ -24,9 +22,6 @@ func init() {
 		path := strings.Split(pwd, "/")
 		pwd = strings.Join(path[:len(path)-1], "/")
 	}
-	fmt.Println(pwd + "/webfiles")
 
 	Assets = http.Dir(pwd + "/webfiles")
-	_, err := Assets.Open(pwd + "/webfiles/pages/index.html")
-	log.Println(err)
 }
