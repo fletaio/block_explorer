@@ -147,7 +147,7 @@ func initChainComponent(act *data.Accounter, tran *data.Transactor) error {
 		"fleta.Assign":                &txFee{AssignTransctionType, amount.COIN.DivC(2)},
 		"fleta.Deposit":               &txFee{DepositTransctionType, amount.COIN.DivC(2)},
 		"fleta.OpenAccount":           &txFee{OpenAccountTransctionType, amount.COIN.MulC(10)},
-		"consensus.CreateFormulation": &txFee{CreateFormulationTransctionType, amount.COIN.MulC(50000)},
+		"consensus.CreateFormulation": &txFee{CreateFormulationTransctionType, amount.COIN.DivC(10)},
 		"consensus.RevokeFormulation": &txFee{RevokeFormulationTransctionType, amount.COIN.DivC(10)},
 		"solidity.CreateContract":     &txFee{SolidityCreateContractType, amount.COIN.MulC(10)},
 		"solidity.CallContract":       &txFee{SolidityCallContractType, amount.COIN.DivC(10)},
